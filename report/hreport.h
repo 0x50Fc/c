@@ -12,7 +12,19 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+    
+    
+    typedef struct _ReportDocument{
+        huint32 version;
+    } ReportDocument;
+    
+    ReportDocument * ReportDocumentCreateBytes(const void * bytes,huint32 length);
+    
+    ReportDocument * ReportDocumentCreateFilePath(hcchar * filePath);
+    
+    void ReportDocumentDelete(ReportDocument * document);
+    
+    
     
 #ifdef __cplusplus
 }
