@@ -8,8 +8,8 @@
  */
 
 
-#ifndef HDATA_XML_H
-#define HDATA_XML_H
+#ifndef HBTREE_H
+#define HBTREE_H
 
 #include "hmem.h"
 #include "hbuffer.h"
