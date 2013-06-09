@@ -37,7 +37,7 @@ hany hjson_decode(hjson_t * json,hcchar * str,InvokeTickDeclare){
 	list_add(state_stack, (hany) 0);
 	
 	
-	while (*p != '\0') {
+	while (p && *p != '\0') {
 		s = (hintptr)list_last(state_stack);
 		if(s == 0x00){
 			if(SPACE_CHAR(*p)){
