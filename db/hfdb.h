@@ -53,6 +53,28 @@ extern "C" {
         FDBProperty rowid;
     } FDBClass;
     
+    
+    enum {
+        FDBIndexTypeNone
+        ,FDBIndexTypeDefault    // 单一索引文件
+        ,FDBIndexTypeValue      // 按值划分文件
+    };
+    
+    typedef huint32 FDBIndexType;
+    
+    enum {
+        FDBIndexOrderASC,
+        FDBIndexOrderDESC
+    };
+    
+    typedef huint32 FDBIndexOrder;
+    
+    typedef struct _FDBIndex {
+        FDBProperty * property;
+        FDBIndexType type;
+        FDBIndexOrder order;
+    } FDBIndex;
+    
     typedef void  * FDBDataItem;
     
     typedef struct _FDBData {
@@ -81,6 +103,23 @@ extern "C" {
     
     hint32 FDBClassGetPropertyInt32Value(FDBDataItem dataItem, FDBProperty * prop,hint32 defaultValue);
     
+    void FDBClassSetPropertyInt64Value(FDBDataItem dataItem, FDBProperty * prop,hint64 value);
+    
+    hint64 FDBClassGetPropertyInt64Value(FDBDataItem dataItem, FDBProperty * prop,hint64 defaultValue);
+    
+    void FDBClassSetPropertyDoubleValue(FDBDataItem dataItem, FDBProperty * prop,hdouble value);
+    
+    hdouble FDBClassGetPropertyDoubleValue(FDBDataItem dataItem, FDBProperty * prop,hdouble defaultValue);
+    
+    void FDBClassSetPropertyStringValue(FDBDataItem dataItem, FDBProperty * prop,hcchar * value);
+    
+    hcchar * FDBClassGetPropertyStringValue(FDBDataItem dataItem, FDBProperty * prop,hcchar * defaultValue);
+    
+    huint32 FDBClassSetPropertyBytesValue(FDBDataItem dataItem, FDBProperty * prop,void * bytes,huint32 length);
+    
+    void * FDBClassGetPropertyBytesValue(FDBDataItem dataItem, FDBProperty * prop,huint32 * length);
+    
+    
     void FDBClassSetPropertyBlobValue(FDBDataItem dataItem,FDBProperty * prop,FDBBlobValue value);
     
     FDBBlobValue FDBClassGetPropertyBlobValue(FDBDataItem dataItem,FDBProperty * prop,FDBBlobValue defaultValue);
@@ -89,9 +128,11 @@ extern "C" {
     typedef struct _FDB{
         huint32 version;
         FDBClass * dbClass;
+        FDBIndex * indexs;
+        huint32 indexsCount;
     } FDB;
     
-    FDB * FDBCreate(hcchar * dbPath,FDBClass * dbClass,hbool isCopyDBClass);
+    FDB * FDBCreate(hcchar * dbPath,FDBClass * dbClass,hbool isCopyDBClass,FDBIndex * indexs,huint32 indexsCount,hbool isCopyDBIndexs);
     
     FDB * FDBOpen(hcchar * dbPath);
     

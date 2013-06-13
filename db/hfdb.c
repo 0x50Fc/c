@@ -156,6 +156,148 @@ hint32 FDBClassGetPropertyInt32Value(FDBDataItem dataItem, FDBProperty * prop,hi
     return defaultValue;
 }
 
+void FDBClassSetPropertyInt64Value(FDBDataItem dataItem, FDBProperty * prop,hint64 value){
+    switch (prop->type) {
+        case FDBPropertyTypeInt32:
+            * (hint32 *)((hbyte *) dataItem + prop->offset) = (hint32)value;
+            break;
+        case FDBPropertyTypeInt64:
+            * (hint64 *)((hbyte *) dataItem + prop->offset) = value;
+            break;
+        case FDBPropertyTypeDouble:
+            * (hdouble *)((hbyte *) dataItem + prop->offset) = value;
+            break;
+        case FDBPropertyTypeString:
+            snprintf((hchar *)((hbyte *) dataItem + prop->offset), prop->length,"%lld",value);
+            break;
+        default:
+            break;
+    }
+}
+
+hint64 FDBClassGetPropertyInt64Value(FDBDataItem dataItem, FDBProperty * prop,hint64 defaultValue){
+    switch (prop->type) {
+        case FDBPropertyTypeInt32:
+            return * (hint32 *)((hbyte *) dataItem + prop->offset) ;
+            break;
+        case FDBPropertyTypeInt64:
+            return  * (hint64 *)((hbyte *) dataItem + prop->offset) ;
+            break;
+        case FDBPropertyTypeDouble:
+            return (hint64) * (hdouble *)((hbyte *) dataItem + prop->offset) ;
+            break;
+        case FDBPropertyTypeString:
+            return atoll((hchar *)((hbyte *) dataItem + prop->offset));
+            break;
+        default:
+            break;
+    }
+    return defaultValue;
+}
+
+void FDBClassSetPropertyDoubleValue(FDBDataItem dataItem, FDBProperty * prop,hdouble value){
+    switch (prop->type) {
+        case FDBPropertyTypeInt32:
+            * (hint32 *)((hbyte *) dataItem + prop->offset) = (hint32)value;
+            break;
+        case FDBPropertyTypeInt64:
+            * (hint64 *)((hbyte *) dataItem + prop->offset) = (hint64)value;
+            break;
+        case FDBPropertyTypeDouble:
+            * (hdouble *)((hbyte *) dataItem + prop->offset) = value;
+            break;
+        case FDBPropertyTypeString:
+            snprintf((hchar *)((hbyte *) dataItem + prop->offset), prop->length,"%f",value);
+            break;
+        default:
+            break;
+    }
+}
+
+hdouble FDBClassGetPropertyDoubleValue(FDBDataItem dataItem, FDBProperty * prop,hdouble defaultValue){
+    switch (prop->type) {
+        case FDBPropertyTypeInt32:
+            return (hdouble) * (hint32 *)((hbyte *) dataItem + prop->offset) ;
+            break;
+        case FDBPropertyTypeInt64:
+            return (hdouble) * (hint64 *)((hbyte *) dataItem + prop->offset) ;
+            break;
+        case FDBPropertyTypeDouble:
+            return * (hdouble *)((hbyte *) dataItem + prop->offset) ;
+            break;
+        case FDBPropertyTypeString:
+            return atof((hchar *)((hbyte *) dataItem + prop->offset));
+            break;
+        default:
+            break;
+    }
+    return defaultValue;
+}
+
+void FDBClassSetPropertyStringValue(FDBDataItem dataItem, FDBProperty * prop,hcchar * value){
+    switch (prop->type) {
+        case FDBPropertyTypeInt32:
+            * (hint32 *)((hbyte *) dataItem + prop->offset) = value ? atoi(value) : 0;
+            break;
+        case FDBPropertyTypeInt64:
+            * (hint64 *)((hbyte *) dataItem + prop->offset) = value ? atoll(value) : 0;
+            break;
+        case FDBPropertyTypeDouble:
+            * (hdouble *)((hbyte *) dataItem + prop->offset) = value ? atof(value) : 0;
+            break;
+        case FDBPropertyTypeString:
+            if(value){
+                strncpy((hchar *)((hbyte *) dataItem + prop->offset), value, prop->length);
+            }
+            else{
+                memset(((hbyte *) dataItem + prop->offset), 0 , prop->length);
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+hcchar * FDBClassGetPropertyStringValue(FDBDataItem dataItem, FDBProperty * prop,hcchar * defaultValue){
+    switch (prop->type) {
+        case FDBPropertyTypeString:
+            return (hchar *)((hbyte *) dataItem + prop->offset);
+            break;
+        default:
+            break;
+    }
+    return defaultValue;
+}
+
+huint32 FDBClassSetPropertyBytesValue(FDBDataItem dataItem, FDBProperty * prop,void * bytes,huint32 length){
+    switch (prop->type) {
+        case FDBPropertyTypeBytes:
+        {
+            huint32 l = MIN(length, prop->length);
+            memcpy(((hbyte *) dataItem + prop->offset), bytes, l);
+            return l;
+        }
+            break;
+        default:
+            break;
+    }
+    return 0;
+}
+
+void * FDBClassGetPropertyBytesValue(FDBDataItem dataItem, FDBProperty * prop,huint32 * length){
+    switch (prop->type) {
+        case FDBPropertyTypeBytes:
+            if(length){
+                * length = prop->length;
+            }
+            return ((hbyte *) dataItem + prop->offset);
+            break;
+        default:
+            break;
+    }
+    return NULL;
+}
+
 void FDBClassSetPropertyBlobValue(FDBDataItem dataItem,FDBProperty * prop,FDBBlobValue value){
     switch (prop->type) {
         case FDBPropertyTypeBlob:
@@ -180,8 +322,11 @@ FDBBlobValue FDBClassGetPropertyBlobValue(FDBDataItem dataItem,FDBProperty * pro
 typedef struct {
     FDB base;
     hbool isCopyDBClass;
+    hbool isCopyDBIndexs;
+    hchar path[PATH_MAX];
     hchar dbPath[PATH_MAX];
-    hchar dobPath[PATH_MAX];
+    hchar bobPath[PATH_MAX];
+    hchar idxPath[PATH_MAX];
     struct {
         hchar * sbuf;
         huint32 size;
@@ -194,24 +339,37 @@ typedef struct {
     hchar tag[4];
     huint32 version;
     huint32 classSize;
+    huint32 indexSize;
 } FDBHead;
 
-FDB * FDBCreate(hcchar * dbPath,FDBClass * dbClass,hbool isCopyDBClass){
+typedef struct {
+    hchar name[FDB_NAME_MAX];
+    FDBIndexType type;
+    FDBIndexOrder order;
+} FDBIndexDB;
+
+FDB * FDBCreate(hcchar * dbPath,FDBClass * dbClass,hbool isCopyDBClass,FDBIndex * indexs,huint32 indexsCount,hbool isCopyDBIndexs){
     
     if(dbPath && dbClass){
         
         FDBInternal * db = malloc(sizeof(FDBInternal));
         int fno;
-        FDBHead head = {FDB_TAG,FDB_VERSION,FDBClassSize(dbClass)};
-        
+        FDBHead head = {FDB_TAG,FDB_VERSION,FDBClassSize(dbClass),indexsCount * sizeof(FDBIndexDB)};
+        FDBIndexDB * indexDB = NULL, * pIndexDB;
+        FDBIndex * pIndex;
+        int c;
         memset(db, 0, sizeof(FDBInternal));
         
+        snprintf(db->path, sizeof(db->path),"%s",dbPath);
         snprintf(db->dbPath, sizeof(db->dbPath),"%s%s",dbPath,FDB_FILE_DB);
-        snprintf(db->dobPath, sizeof(db->dobPath),"%s%s",dbPath,FDB_FILE_BOLB);
+        snprintf(db->bobPath, sizeof(db->bobPath),"%s%s",dbPath,FDB_FILE_BOLB);
         
         db->base.version = FDB_VERSION;
         db->base.dbClass = dbClass;
+        db->base.indexs = indexs;
+        db->base.indexsCount = indexsCount;
         db->isCopyDBClass = isCopyDBClass;
+        db->isCopyDBIndexs = isCopyDBIndexs;
         
         fno = open(db->dbPath, O_WRONLY | O_CREAT | O_TRUNC);
         
@@ -232,9 +390,38 @@ FDB * FDBCreate(hcchar * dbPath,FDBClass * dbClass,hbool isCopyDBClass){
             return NULL;
         }
         
+        if(indexsCount >0){
+            
+            indexDB = malloc(head.indexSize);
+            memset(indexDB,0,head.indexSize);
+            
+            pIndex = indexs;
+            pIndexDB = indexDB;
+            c =indexsCount;
+            
+            while(c >0){
+                
+                strncpy(pIndexDB->name, pIndex->property->name,sizeof(pIndexDB->name));
+                pIndexDB->order = pIndex->order;
+                pIndexDB->type = pIndex->type;
+                
+                pIndex ++;
+                pIndexDB ++;
+                c --;
+            }
+            
+            if(write(fno, indexDB, head.indexSize) != head.indexSize){
+                free(db);
+                free(indexDB);
+                return NULL;
+            }
+            
+            free(indexDB);
+        }
+        
         close(fno);
         
-        fno = open(db->dobPath,O_WRONLY | O_CREAT | O_TRUNC);
+        fno = open(db->bobPath,O_WRONLY | O_CREAT | O_TRUNC);
         
         if(fno == -1){
             free(db);
@@ -250,6 +437,11 @@ FDB * FDBCreate(hcchar * dbPath,FDBClass * dbClass,hbool isCopyDBClass){
             memcpy(db->base.dbClass, dbClass, head.classSize);
         }
         
+        if(indexs && isCopyDBIndexs){
+            db->base.indexs = malloc(head.indexSize);
+            memcpy(db->base.indexs, indexs, head.indexSize);
+        }
+        
         return (FDB *)db;
     }
     
@@ -260,13 +452,18 @@ FDB * FDBOpen(hcchar * dbPath){
     if(dbPath){
        
         FDBInternal * db = malloc(sizeof(FDBInternal));
-        int fno;
+        int fno,c;
         FDBHead head;
+        FDBIndexDB * indexDB,* pIndexDB;
+        FDBIndex * pIndex;
         
+
         memset(db, 0, sizeof(FDBInternal));
         
+        snprintf(db->path, sizeof(db->path),"%s",dbPath);
         snprintf(db->dbPath, sizeof(db->dbPath),"%s%s",dbPath,FDB_FILE_DB);
-        snprintf(db->dobPath, sizeof(db->dobPath),"%s%s",dbPath,FDB_FILE_BOLB);
+        snprintf(db->bobPath, sizeof(db->bobPath),"%s%s",dbPath,FDB_FILE_BOLB);
+        
         
         fno = open(db->dbPath, O_RDONLY);
         
@@ -298,6 +495,41 @@ FDB * FDBOpen(hcchar * dbPath){
             return NULL;
         }
         
+        db->base.indexsCount = head.indexSize / sizeof(FDBIndexDB);
+        
+        if(db->base.indexsCount){
+            
+            indexDB = malloc(head.indexSize);
+            
+            if(head.indexSize != read(fno, indexDB, head.indexSize)){
+                free(db->base.dbClass);
+                free(db);
+                free(indexDB);
+                return NULL;
+            }
+            
+            db->isCopyDBIndexs = hbool_true;
+            db->base.indexs = malloc(db->base.indexsCount * db->base.indexsCount);
+            memset(db->base.indexs, 0, db->base.indexsCount * db->base.indexsCount);
+            
+            c = db->base.indexsCount;
+            pIndex = db->base.indexs;
+            pIndexDB = indexDB;
+            
+            while(c >0){
+                
+                pIndex->property = FDBClassGetProperty(db->base.dbClass, pIndexDB->name);
+                pIndex->type = pIndexDB->type;
+                pIndex->order = pIndexDB->order;
+                
+                c --;
+                pIndex ++;
+                pIndexDB ++;
+            }
+            
+            free(indexDB);
+        }
+        
         close(fno);
         
         return (FDB *) db;
@@ -309,6 +541,9 @@ void FDBClose(FDB * fdb){
     FDBInternal * db = (FDBInternal *) fdb;
     if(db->isCopyDBClass){
         free(db->base.dbClass);
+    }
+    if(db->isCopyDBIndexs){
+        free(db->base.indexs);
     }
     if(db->blob.sbuf){
         free(db->blob.sbuf);
@@ -335,18 +570,20 @@ hint32 FDBInsertData(FDB * fdb,FDBData * data,huint32 offset,huint32 length){
     hint32 rowid = lastRowid ;
     hint32 i;
     FDBDataItem dataItem;
+    hchar path[PATH_MAX];
     
     assert(fdb->dbClass == data->dbClass);
     
+    snprintf(path, sizeof(path),"%s%s",db->path,FDB_FILE_DB);
+    
     for (i = 0; i < length; i++) {
         dataItem = FDBDataItemAt(data, offset + i);
-        if(dataItem){
-            FDBClassSetPropertyInt32Value(dataItem,& data->dbClass->rowid, ++ rowid);
-        }
+        assert(dataItem);
+        FDBClassSetPropertyInt32Value(dataItem,& data->dbClass->rowid, ++ rowid);
     }
     
-    int fno = open(db->dbPath, O_WRONLY);
-    
+    int fno = open(path, O_WRONLY);
+
     if(fno == -1){
         return FDB_ERROR;
     }
@@ -373,6 +610,7 @@ hint32 FDBInsertData(FDB * fdb,FDBData * data,huint32 offset,huint32 length){
         return FDB_ERROR;
     }
     
+
     lseek(fno, 0, SEEK_END);
     
     i = db->base.dbClass->itemSize * length;
@@ -384,7 +622,7 @@ hint32 FDBInsertData(FDB * fdb,FDBData * data,huint32 offset,huint32 length){
         close(fno);
         return FDB_ERROR;
     }
-    
+
     flock(fno, LOCK_UN);
     close(fno);
     
@@ -396,8 +634,8 @@ static char FDBBlobTag[4] = {'B','L','O','B'};
 FDBBlobValue FDBBlobCreate(FDB * fdb,void * data,huint32 length){
     FDBInternal * db = (FDBInternal *) fdb;
     FDBBlobValue v = 0;
-    
-    int fno = open(db->dobPath, O_WRONLY | O_CREAT);
+
+    int fno = open(db->bobPath, O_WRONLY | O_CREAT);
     
     if(fno == -1){
         return 0;
@@ -416,7 +654,7 @@ FDBBlobValue FDBBlobCreate(FDB * fdb,void * data,huint32 length){
         }
         v = sizeof(FDBBlobTag);
     }
-    
+
     if(sizeof(length) != write(fno, &length, sizeof(length))){
         
         flock(fno, LOCK_UN);
@@ -432,7 +670,7 @@ FDBBlobValue FDBBlobCreate(FDB * fdb,void * data,huint32 length){
         
         return 0;
     }
-    
+     
     flock(fno, LOCK_UN);
     close(fno);
     
@@ -442,7 +680,7 @@ FDBBlobValue FDBBlobCreate(FDB * fdb,void * data,huint32 length){
 void * FDBBlobRead(FDB * fdb,FDBBlobValue value,huint32 * length){
     FDBInternal * db = (FDBInternal *) fdb;
     int fno;
-    int len;
+    huint32 len;
     
     if(db->blob.sbuf && value >= db->blob.location && value < db->blob.location + db->blob.length){
         if(length){
@@ -454,7 +692,7 @@ void * FDBBlobRead(FDB * fdb,FDBBlobValue value,huint32 * length){
     db->blob.length = 0;
     db->blob.location = value;
     
-    fno = open(db->dobPath, O_RDONLY);
+    fno = open(db->bobPath, O_RDONLY);
     
     if(fno == -1){
         return NULL;
@@ -576,13 +814,13 @@ FDBDataItem FDBCursorNext(FDB * fdb,FDBCursor * cursor){
     off_t off;
     huint32 classSize = FDBClassSize(fdb->dbClass);
     huint32 len;
-    
+
     while(1){
         
         if(cursor->length ==0){
-            
+                
             assert(cursor->data.dbClass == fdb->dbClass && cursor->data.length);
-            
+    
             fno = open(db->dbPath, O_RDONLY);
             
             if(fno == -1){
@@ -595,7 +833,7 @@ FDBDataItem FDBCursorNext(FDB * fdb,FDBCursor * cursor){
             cursor->location = cursor->location + cursor->index;
             cursor->index = 0;
             
-            off = sizeof(FDBHead) + classSize + fdb->dbClass->itemSize * cursor->location;
+            off = sizeof(FDBHead) + classSize + sizeof(FDBIndexDB) * db->base.indexsCount + fdb->dbClass->itemSize * cursor->location;
             
             if(off != lseek(fno, off, SEEK_SET)){
                 
@@ -607,7 +845,7 @@ FDBDataItem FDBCursorNext(FDB * fdb,FDBCursor * cursor){
             len = cursor->data.length * fdb->dbClass->itemSize;
             
             len = read(fno, cursor->data.data, len);
-            
+     
             if(len % fdb->dbClass->itemSize){
                 flock(fno, LOCK_UN);
                 close(fno);
@@ -622,6 +860,7 @@ FDBDataItem FDBCursorNext(FDB * fdb,FDBCursor * cursor){
             if(cursor->length ==0){
                 break;
             }
+
         }
         
         dataItem = FDBDataItemAt(& cursor->data, cursor->index);
@@ -678,7 +917,8 @@ FDBDataItem FDBCursorToRowid(FDB * fdb,FDBCursor * cursor,hint32 rowid){
     cursor->location = rowid -1;
     cursor->index = 0;
     
-    off = sizeof(FDBHead) + classSize + fdb->dbClass->itemSize * cursor->location;
+    off = sizeof(FDBHead) + classSize + sizeof(FDBIndexDB) * db->base.indexsCount
+        + fdb->dbClass->itemSize * cursor->location;
     
     if(off != lseek(fno, off, SEEK_SET)){
         
