@@ -30,7 +30,6 @@ extern "C" {
         FDBPropertyTypeInt64,   // hint64
         FDBPropertyTypeDouble,  // hdouble
         FDBPropertyTypeString,  // 定长 UTF8String
-        FDBPropertyTypeBytes,   // 定长 bytes
         FDBPropertyTypeBlob,     // 变长 bytes , 不可作为索引
         FDBPropertyTypeMaxCount
     };
@@ -53,6 +52,8 @@ extern "C" {
         FDBProperty rowid;
     } FDBClass;
     
+#define FDBClassPropertyCount(t)      ((sizeof(t) - sizeof(FDBClass)) / sizeof(FDBProperty) + 1) 
+    
     typedef void  * FDBDataItem;
     
     typedef struct _FDBData {
@@ -61,7 +62,7 @@ extern "C" {
         void * data;
     } FDBData;
     
-    void FDBClassInitialize(FDBClass * const dbClass,huint32 propertyCount);
+    void FDBClassInitialize(FDBClass * const dbClass);
     
     void FDBDataCreate(FDBData * const data,FDBClass * dbClass);
     
@@ -92,10 +93,6 @@ extern "C" {
     void FDBClassSetPropertyStringValue(FDBDataItem dataItem, FDBProperty * prop,hcchar * value);
     
     hcchar * FDBClassGetPropertyStringValue(FDBDataItem dataItem, FDBProperty * prop,hcchar * defaultValue);
-    
-    huint32 FDBClassSetPropertyBytesValue(FDBDataItem dataItem, FDBProperty * prop,void * bytes,huint32 length);
-    
-    void * FDBClassGetPropertyBytesValue(FDBDataItem dataItem, FDBProperty * prop,huint32 * length);
     
     
     void FDBClassSetPropertyBlobValue(FDBDataItem dataItem,FDBProperty * prop,FDBBlobValue value);

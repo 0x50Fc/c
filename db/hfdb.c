@@ -12,13 +12,13 @@
 #include "hfile.h"
 
 
-void FDBClassInitialize(FDBClass * const dbClass,huint32 propertyCount){
+void FDBClassInitialize(FDBClass * const dbClass){
     FDBProperty * prop = & dbClass->rowid;
+    huint32 c = dbClass->propertyCount;
     dbClass->itemSize = 0;
-    dbClass->propertyCount = propertyCount;
     dbClass->lastRowid = 0;
     
-    while(propertyCount > 0){
+    while(c > 0){
         
         assert(prop->type > FDBPropertyTypeNone && prop->type < FDBPropertyTypeMaxCount);
         
@@ -37,11 +37,6 @@ void FDBClassInitialize(FDBClass * const dbClass,huint32 propertyCount){
                     prop->length = 512;
                 }
                 break;
-            case FDBPropertyTypeBytes:
-                if(prop->length == 0){
-                    prop->length = 512;
-                }
-                break;
             case FDBPropertyTypeBlob:
                 prop->length = sizeof(FDBBlobValue);
                 break;
@@ -55,7 +50,7 @@ void FDBClassInitialize(FDBClass * const dbClass,huint32 propertyCount){
         dbClass->itemSize += prop->length;
         
         prop ++;
-        propertyCount --;
+        c --;
     }
 }
 
@@ -267,35 +262,6 @@ hcchar * FDBClassGetPropertyStringValue(FDBDataItem dataItem, FDBProperty * prop
             break;
     }
     return defaultValue;
-}
-
-huint32 FDBClassSetPropertyBytesValue(FDBDataItem dataItem, FDBProperty * prop,void * bytes,huint32 length){
-    switch (prop->type) {
-        case FDBPropertyTypeBytes:
-        {
-            huint32 l = MIN(length, prop->length);
-            memcpy(((hbyte *) dataItem + prop->offset), bytes, l);
-            return l;
-        }
-            break;
-        default:
-            break;
-    }
-    return 0;
-}
-
-void * FDBClassGetPropertyBytesValue(FDBDataItem dataItem, FDBProperty * prop,huint32 * length){
-    switch (prop->type) {
-        case FDBPropertyTypeBytes:
-            if(length){
-                * length = prop->length;
-            }
-            return ((hbyte *) dataItem + prop->offset);
-            break;
-        default:
-            break;
-    }
-    return NULL;
 }
 
 void FDBClassSetPropertyBlobValue(FDBDataItem dataItem,FDBProperty * prop,FDBBlobValue value){
@@ -706,11 +672,6 @@ hint32 FDBInsert(FDB * fdb,FDBDataItem dataItem){
     close(fno);
     
     return FDB_OK;
-}
-
-hint32 FDBUpdate(FDB * fdb,FDBDataItem dataItem){
-    
-    return FDB_ERROR;
 }
 
 FDBDataItem FDBCursorNext(FDB * fdb,FDBCursor * cursor){
