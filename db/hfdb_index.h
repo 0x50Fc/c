@@ -52,24 +52,29 @@ extern "C" {
 
     FDBDataItem FDBIndexDataAt(FDBIndexData * const data,huint32 index);
     
-    FDBDataItem FDBIndexInsert(FDBIndexData * const data);
+    FDBDataItem FDBIndexDataInsert(FDBIndexData * const data);
     
     huint32 FDBIndexSort(FDBIndexData * const data,FDBIndexDataItemCompare compare,hany context);
     
-    huint32 FDBIndexSortProperty(FDBIndexData * const data, FDBProperty * property,FDBIndexCompareOrder mode);
+    typedef struct _FDBIndexSortProperty {
+        FDBProperty * property;
+        FDBIndexCompareOrder mode;
+    } FDBIndexSortProperty;
+    
+    huint32 FDBIndexSortPropertys(FDBIndexData * const data, FDBIndexSortProperty * propertys,huint32 length);
     
     typedef struct _FDBIndexDB {
         huint32 version;
         FDBIndex * index;
     } FDBIndexDB;
     
-    FDBIndexDB * FDBIndexOpen(hcchar * idxPath);
+    FDBIndexDB * FDBIndexOpen(hcchar * dbPath,hcchar * name);
     
     huint32 FDBIndexRowCount(FDBIndexDB * dbIndex);
     
     void FDBIndexClose(FDBIndexDB * dbIndex);
     
-    hint32 FDBIndexWrite(hcchar * idxPath,FDBIndexData * const indexData);
+    hint32 FDBIndexWrite(hcchar * dbPath,hcchar * name,FDBIndexData * const indexData);
     
     
     

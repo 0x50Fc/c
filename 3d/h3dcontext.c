@@ -182,7 +182,7 @@ void c3d_schedule_task_cancels(struct _c3d_context_t * context,hany target,Invok
 }
 
 static void c3d_context_cleanup_programs_callback(hdata_t data,hcchar *key,hdata_t value,hany dest,InvokeTickDeclare){
-    c3d_program_t p = hdata_int64(&hdata_class, value, 0);
+    c3d_program_t p = (c3d_program_t)hdata_int64(&hdata_class, value, 0);
     if(p){
         c3d_program_delete(p);
     }

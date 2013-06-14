@@ -93,7 +93,7 @@ FDBDataItem FDBIndexDataAt(FDBIndexData * const data,huint32 index){
     return NULL;
 }
 
-FDBDataItem FDBIndexInsert(FDBIndexData * const data){
+FDBDataItem FDBIndexDataInsert(FDBIndexData * const data){
     
     FDBDataItem dataItem = NULL;
 
@@ -213,69 +213,79 @@ huint32 FDBIndexSort(FDBIndexData * const data,FDBIndexDataItemCompare compare,h
     return data->length;
 }
 
-
 typedef struct _FDBIndexSortPropertyCompareContext {
-    FDBProperty * property;
-    FDBIndexCompareOrder mode;
+    FDBIndexSortProperty * propertys;
+    huint32 length;
 } FDBIndexSortPropertyCompareContext;
 
 static FDBIndexCompareOrder FDBIndexSortPropertyCompare (FDBIndex * index,FDBDataItem dataItem1,FDBDataItem dataItem2,hany context){
+    
     FDBIndexSortPropertyCompareContext * ctx = (FDBIndexSortPropertyCompareContext *) context;
-    switch (ctx->property->type) {
-        case FDBPropertyTypeInt32:
-        case FDBPropertyTypeInt64:
-        {
-            hint64 rs = FDBClassGetPropertyInt64Value(dataItem1, ctx->property, 0) - FDBClassGetPropertyInt64Value(dataItem2, ctx->property, 0);
-            if(rs == 0){
-                return FDBIndexCompareOrderSame;
+    FDBIndexCompareOrder o = FDBIndexCompareOrderSame;
+    huint32 c = ctx->length;
+    FDBIndexSortProperty * prop = ctx->propertys;
+    
+    while(o == FDBIndexCompareOrderSame && c >0){
+       
+        switch (prop->property->type) {
+            case FDBPropertyTypeInt32:
+            case FDBPropertyTypeInt64:
+            {
+                hint64 rs = FDBClassGetPropertyInt64Value(dataItem1, prop->property, 0) - FDBClassGetPropertyInt64Value(dataItem2, prop->property, 0);
+                if(rs == 0){
+                    o = FDBIndexCompareOrderSame;
+                }
+                else if(rs <0){
+                    o = prop->mode;
+                }
+                else{
+                    o = - prop->mode;
+                }
             }
-            else if(rs <0){
-                return ctx->mode;
+                break;
+            case FDBPropertyTypeDouble:
+            {
+                hdouble rs = FDBClassGetPropertyDoubleValue(dataItem1, prop->property, 0) - FDBClassGetPropertyDoubleValue(dataItem2, prop->property, 0);
+                if(rs == 0){
+                    o = FDBIndexCompareOrderSame;
+                }
+                else if(rs <0){
+                    o = prop->mode;
+                }
+                else{
+                    o = - prop->mode;
+                }
             }
-            else{
-                return - ctx->mode;
+                break;
+            case FDBPropertyTypeString:
+            {
+                hint32 rs = strcmp(FDBClassGetPropertyStringValue(dataItem1, prop->property, ""), FDBClassGetPropertyStringValue(dataItem1, prop->property, ""));
+                if(rs == 0){
+                    o = FDBIndexCompareOrderSame;
+                }
+                else if(rs <0){
+                    o = prop->mode;
+                }
+                else{
+                    o = - prop->mode;
+                }
             }
+                break;
+            default:
+                break;
         }
-            break;
-        case FDBPropertyTypeDouble:
-        {
-            hdouble rs = FDBClassGetPropertyDoubleValue(dataItem1, ctx->property, 0) - FDBClassGetPropertyDoubleValue(dataItem2, ctx->property, 0);
-            if(rs == 0){
-                return FDBIndexCompareOrderSame;
-            }
-            else if(rs <0){
-                return ctx->mode;
-            }
-            else{
-                return - ctx->mode;
-            }
-        }
-            break;
-        case FDBPropertyTypeString:
-        {
-            hint32 rs = strcmp(FDBClassGetPropertyStringValue(dataItem1, ctx->property, ""), FDBClassGetPropertyStringValue(dataItem1, ctx->property, ""));
-            if(rs == 0){
-                return FDBIndexCompareOrderSame;
-            }
-            else if(rs <0){
-                return ctx->mode;
-            }
-            else{
-                return - ctx->mode;
-            }
-        }
-            break;
-        default:
-            break;
+
+        c --;
+        prop ++;
     }
-    return FDBIndexCompareOrderSame;
+  
+    return o;
 }
 
-huint32 FDBIndexSortProperty(FDBIndexData * const data, FDBProperty * property,FDBIndexCompareOrder mode){
-    FDBIndexSortPropertyCompareContext ctx = {property,mode};
+huint32 FDBIndexSortPropertys(FDBIndexData * const data, FDBIndexSortProperty * propertys,huint32 length){
+    FDBIndexSortPropertyCompareContext ctx = {propertys,length};
     return FDBIndexSort(data,FDBIndexSortPropertyCompare,&ctx);
 }
-
 
 typedef struct _FDBIndexDBInternal {
     FDBIndexDB base;
@@ -288,9 +298,9 @@ typedef struct _FDBIndexHead {
     huint32 indexSize;
 } FDBIndexHead;
 
-FDBIndexDB * FDBIndexOpen(hcchar * idxPath){
+FDBIndexDB * FDBIndexOpen(hcchar * dbPath,hcchar * name){
     
-    if(idxPath){
+    if(dbPath){
         
         FDBIndexDBInternal * idx = malloc(sizeof(FDBIndexDBInternal));
         int fno;
@@ -298,7 +308,7 @@ FDBIndexDB * FDBIndexOpen(hcchar * idxPath){
         
         memset(idx, 0, sizeof(FDBIndexDBInternal));
         
-        snprintf(idx->idxPath, sizeof(idx->idxPath),"%s%s",idxPath,FDB_FILE_INDEX);
+        snprintf(idx->idxPath, sizeof(idx->idxPath),"%s_%s%s",dbPath,name,FDB_FILE_INDEX);
         
         fno = open(idx->idxPath, O_RDONLY);
         
@@ -354,21 +364,23 @@ void FDBIndexClose(FDBIndexDB * dbIndex){
     free(idx);
 }
 
-hint32 FDBIndexWrite(hcchar * idxPath,FDBIndexData * const indexData){
+hint32 FDBIndexWrite(hcchar * dbPath,hcchar * name,FDBIndexData * const indexData){
     
-    if(idxPath){
+    if(dbPath){
         
         int fno;
         FDBIndexHead head = {FDB_INDEX_TAG,FDB_INDEX_VERSION,FDBIndexSize(indexData->index)};
         hchar path[PATH_MAX];
         
-        snprintf(path, sizeof(path),"%s%s",idxPath,FDB_FILE_INDEX);
+        snprintf(path, sizeof(path),"%s_%s%s",dbPath,name,FDB_FILE_INDEX);
         
         fno = open(path, O_WRONLY | O_CREAT | O_TRUNC);
         
         if(fno == -1){
             return FDB_ERROR;
         }
+        
+        fchmod(fno, S_IRUSR | S_IWUSR);
 
         if(sizeof(head) != write(fno, &head, sizeof(head))){
             close(fno);

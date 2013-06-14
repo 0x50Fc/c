@@ -14,7 +14,7 @@
 extern "C" {
 #endif
     
-#define FDB_NAME_MAX        32
+#define FDB_NAME_MAX        64
 #define FDB_OK              0
 #define FDB_ERROR           -1
 #define FDB_VERSION         0x100000
