@@ -53,28 +53,6 @@ extern "C" {
         FDBProperty rowid;
     } FDBClass;
     
-    
-    enum {
-        FDBIndexTypeNone
-        ,FDBIndexTypeDefault    // 单一索引文件
-        ,FDBIndexTypeValue      // 按值划分文件
-    };
-    
-    typedef huint32 FDBIndexType;
-    
-    enum {
-        FDBIndexOrderASC,
-        FDBIndexOrderDESC
-    };
-    
-    typedef huint32 FDBIndexOrder;
-    
-    typedef struct _FDBIndex {
-        FDBProperty * property;
-        FDBIndexType type;
-        FDBIndexOrder order;
-    } FDBIndex;
-    
     typedef void  * FDBDataItem;
     
     typedef struct _FDBData {
@@ -128,11 +106,9 @@ extern "C" {
     typedef struct _FDB{
         huint32 version;
         FDBClass * dbClass;
-        FDBIndex * indexs;
-        huint32 indexsCount;
     } FDB;
     
-    FDB * FDBCreate(hcchar * dbPath,FDBClass * dbClass,hbool isCopyDBClass,FDBIndex * indexs,huint32 indexsCount,hbool isCopyDBIndexs);
+    FDB * FDBCreate(hcchar * dbPath,FDBClass * dbClass,hbool isCopyDBClass);
     
     FDB * FDBOpen(hcchar * dbPath);
     

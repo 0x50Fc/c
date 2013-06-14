@@ -323,10 +323,8 @@ typedef struct {
     FDB base;
     hbool isCopyDBClass;
     hbool isCopyDBIndexs;
-    hchar path[PATH_MAX];
     hchar dbPath[PATH_MAX];
     hchar bobPath[PATH_MAX];
-    hchar idxPath[PATH_MAX];
     struct {
         hchar * sbuf;
         huint32 size;
@@ -339,37 +337,25 @@ typedef struct {
     hchar tag[4];
     huint32 version;
     huint32 classSize;
-    huint32 indexSize;
 } FDBHead;
 
-typedef struct {
-    hchar name[FDB_NAME_MAX];
-    FDBIndexType type;
-    FDBIndexOrder order;
-} FDBIndexDB;
 
-FDB * FDBCreate(hcchar * dbPath,FDBClass * dbClass,hbool isCopyDBClass,FDBIndex * indexs,huint32 indexsCount,hbool isCopyDBIndexs){
+FDB * FDBCreate(hcchar * dbPath,FDBClass * dbClass,hbool isCopyDBClass){
     
     if(dbPath && dbClass){
         
         FDBInternal * db = malloc(sizeof(FDBInternal));
         int fno;
-        FDBHead head = {FDB_TAG,FDB_VERSION,FDBClassSize(dbClass),indexsCount * sizeof(FDBIndexDB)};
-        FDBIndexDB * indexDB = NULL, * pIndexDB;
-        FDBIndex * pIndex;
-        int c;
+        FDBHead head = {FDB_TAG,FDB_VERSION,FDBClassSize(dbClass)};
+
         memset(db, 0, sizeof(FDBInternal));
         
-        snprintf(db->path, sizeof(db->path),"%s",dbPath);
         snprintf(db->dbPath, sizeof(db->dbPath),"%s%s",dbPath,FDB_FILE_DB);
         snprintf(db->bobPath, sizeof(db->bobPath),"%s%s",dbPath,FDB_FILE_BOLB);
         
         db->base.version = FDB_VERSION;
         db->base.dbClass = dbClass;
-        db->base.indexs = indexs;
-        db->base.indexsCount = indexsCount;
         db->isCopyDBClass = isCopyDBClass;
-        db->isCopyDBIndexs = isCopyDBIndexs;
         
         fno = open(db->dbPath, O_WRONLY | O_CREAT | O_TRUNC);
         
@@ -390,35 +376,6 @@ FDB * FDBCreate(hcchar * dbPath,FDBClass * dbClass,hbool isCopyDBClass,FDBIndex 
             return NULL;
         }
         
-        if(indexsCount >0){
-            
-            indexDB = malloc(head.indexSize);
-            memset(indexDB,0,head.indexSize);
-            
-            pIndex = indexs;
-            pIndexDB = indexDB;
-            c =indexsCount;
-            
-            while(c >0){
-                
-                strncpy(pIndexDB->name, pIndex->property->name,sizeof(pIndexDB->name));
-                pIndexDB->order = pIndex->order;
-                pIndexDB->type = pIndex->type;
-                
-                pIndex ++;
-                pIndexDB ++;
-                c --;
-            }
-            
-            if(write(fno, indexDB, head.indexSize) != head.indexSize){
-                free(db);
-                free(indexDB);
-                return NULL;
-            }
-            
-            free(indexDB);
-        }
-        
         close(fno);
         
         fno = open(db->bobPath,O_WRONLY | O_CREAT | O_TRUNC);
@@ -437,11 +394,6 @@ FDB * FDBCreate(hcchar * dbPath,FDBClass * dbClass,hbool isCopyDBClass,FDBIndex 
             memcpy(db->base.dbClass, dbClass, head.classSize);
         }
         
-        if(indexs && isCopyDBIndexs){
-            db->base.indexs = malloc(head.indexSize);
-            memcpy(db->base.indexs, indexs, head.indexSize);
-        }
-        
         return (FDB *)db;
     }
     
@@ -452,15 +404,11 @@ FDB * FDBOpen(hcchar * dbPath){
     if(dbPath){
        
         FDBInternal * db = malloc(sizeof(FDBInternal));
-        int fno,c;
+        int fno;
         FDBHead head;
-        FDBIndexDB * indexDB,* pIndexDB;
-        FDBIndex * pIndex;
         
-
         memset(db, 0, sizeof(FDBInternal));
-        
-        snprintf(db->path, sizeof(db->path),"%s",dbPath);
+
         snprintf(db->dbPath, sizeof(db->dbPath),"%s%s",dbPath,FDB_FILE_DB);
         snprintf(db->bobPath, sizeof(db->bobPath),"%s%s",dbPath,FDB_FILE_BOLB);
         
@@ -495,41 +443,6 @@ FDB * FDBOpen(hcchar * dbPath){
             return NULL;
         }
         
-        db->base.indexsCount = head.indexSize / sizeof(FDBIndexDB);
-        
-        if(db->base.indexsCount){
-            
-            indexDB = malloc(head.indexSize);
-            
-            if(head.indexSize != read(fno, indexDB, head.indexSize)){
-                free(db->base.dbClass);
-                free(db);
-                free(indexDB);
-                return NULL;
-            }
-            
-            db->isCopyDBIndexs = hbool_true;
-            db->base.indexs = malloc(db->base.indexsCount * db->base.indexsCount);
-            memset(db->base.indexs, 0, db->base.indexsCount * db->base.indexsCount);
-            
-            c = db->base.indexsCount;
-            pIndex = db->base.indexs;
-            pIndexDB = indexDB;
-            
-            while(c >0){
-                
-                pIndex->property = FDBClassGetProperty(db->base.dbClass, pIndexDB->name);
-                pIndex->type = pIndexDB->type;
-                pIndex->order = pIndexDB->order;
-                
-                c --;
-                pIndex ++;
-                pIndexDB ++;
-            }
-            
-            free(indexDB);
-        }
-        
         close(fno);
         
         return (FDB *) db;
@@ -541,9 +454,6 @@ void FDBClose(FDB * fdb){
     FDBInternal * db = (FDBInternal *) fdb;
     if(db->isCopyDBClass){
         free(db->base.dbClass);
-    }
-    if(db->isCopyDBIndexs){
-        free(db->base.indexs);
     }
     if(db->blob.sbuf){
         free(db->blob.sbuf);
@@ -570,11 +480,8 @@ hint32 FDBInsertData(FDB * fdb,FDBData * data,huint32 offset,huint32 length){
     hint32 rowid = lastRowid ;
     hint32 i;
     FDBDataItem dataItem;
-    hchar path[PATH_MAX];
     
     assert(fdb->dbClass == data->dbClass);
-    
-    snprintf(path, sizeof(path),"%s%s",db->path,FDB_FILE_DB);
     
     for (i = 0; i < length; i++) {
         dataItem = FDBDataItemAt(data, offset + i);
@@ -582,7 +489,7 @@ hint32 FDBInsertData(FDB * fdb,FDBData * data,huint32 offset,huint32 length){
         FDBClassSetPropertyInt32Value(dataItem,& data->dbClass->rowid, ++ rowid);
     }
     
-    int fno = open(path, O_WRONLY);
+    int fno = open(db->dbPath, O_WRONLY);
 
     if(fno == -1){
         return FDB_ERROR;
@@ -833,7 +740,7 @@ FDBDataItem FDBCursorNext(FDB * fdb,FDBCursor * cursor){
             cursor->location = cursor->location + cursor->index;
             cursor->index = 0;
             
-            off = sizeof(FDBHead) + classSize + sizeof(FDBIndexDB) * db->base.indexsCount + fdb->dbClass->itemSize * cursor->location;
+            off = sizeof(FDBHead) + classSize + fdb->dbClass->itemSize * cursor->location;
             
             if(off != lseek(fno, off, SEEK_SET)){
                 
@@ -917,8 +824,7 @@ FDBDataItem FDBCursorToRowid(FDB * fdb,FDBCursor * cursor,hint32 rowid){
     cursor->location = rowid -1;
     cursor->index = 0;
     
-    off = sizeof(FDBHead) + classSize + sizeof(FDBIndexDB) * db->base.indexsCount
-        + fdb->dbClass->itemSize * cursor->location;
+    off = sizeof(FDBHead) + classSize + fdb->dbClass->itemSize * cursor->location;
     
     if(off != lseek(fno, off, SEEK_SET)){
         
