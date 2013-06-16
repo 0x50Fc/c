@@ -29,6 +29,8 @@ extern "C" {
     
     huint32 FDBIndexSize(FDBIndex * const index);
     
+    FDBProperty * FDBIndexGetProperty(FDBIndex * const index,hcchar * name);
+    
     typedef struct _FDBIndexData {
         FDBIndex * index;
         huint32 length;
@@ -76,6 +78,32 @@ extern "C" {
     
     hint32 FDBIndexWrite(hcchar * dbPath,hcchar * name,FDBIndexData * const indexData);
     
+    typedef struct _FDBIndexCursor {
+        FDBIndexData data;
+        huint32 location;
+        huint32 index;
+    } FDBIndexCursor;
+    
+    typedef FDBIndexCompareOrder (* FDBIndexCursorCompare) (FDBIndexDB * indexDB,struct _FDBIndexCursor * cursor,FDBDataItem dataItem,hany context);
+    
+    FDBDataItem FDBIndexCursorToBegin(FDBIndexDB * indexDB,FDBIndexCursor * cursor,FDBIndexCursorCompare compare,hany context);
+    
+    typedef struct _FDBIndexCursorProperty {
+        FDBProperty * property;
+        FDBIndexCompareOrder mode;
+        union {
+            hint32 int32Value;
+            hint64 int64Value;
+            hdouble doubleValue;
+            hcchar * stringValue;
+        };
+    } FDBIndexCursorProperty;
+    
+    FDBDataItem FDBIndexCursorToBeginPropertys(FDBIndexDB * indexDB,FDBIndexCursor * cursor,FDBIndexCursorProperty * propertys,huint32 length);
+    
+    FDBDataItem FDBIndexCursorToNext(FDBIndexDB * indexDB,FDBIndexCursor * cursor,FDBIndexCursorCompare compare,hany context);
+    
+    FDBDataItem FDBIndexCursorToNextPropertys(FDBIndexDB * indexDB,FDBIndexCursor * cursor,FDBIndexCursorProperty * propertys,huint32 length);
     
     
     
