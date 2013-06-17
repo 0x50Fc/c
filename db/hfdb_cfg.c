@@ -240,7 +240,8 @@ hcchar * FDBConfigClassNameAt(FDBConfig * config,huint32 index){
 FDBClass * FDBConfigFindClass(FDBConfig * config,hcchar * name){
     InvokeTickBegin
     FDBConfigInternal * cfg = (FDBConfigInternal *) config;
-    return (FDBClass *) map_get(cfg->dbClassMap, (hany)name);
+    FDBClassConfig * c = (FDBClassConfig *)  map_get(cfg->dbClassMap, (hany)name);
+    return  c ? c->dbClass : NULL;
 }
 
 FDBIndex * FDBConfigIndexAt(FDBConfig * config,huint32 index){
