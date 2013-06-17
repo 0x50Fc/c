@@ -60,7 +60,7 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "db -config cfg.json -insqlite system.db -insql &quot;SELECT * FROM [Drug] ORDER BY [ID]&quot; -class Drug -out drug"
+            argument = "index -config cfg.json -indb drug -index CommonName"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>

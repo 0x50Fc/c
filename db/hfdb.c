@@ -762,6 +762,7 @@ FDBDataItem FDBCursorToRowid(FDB * fdb,FDBCursor * cursor,hint32 rowid){
     if(rowid - 1 >= cursor->location && rowid -1 < cursor->location + cursor->index + cursor->length){
         cursor->length = cursor->index + cursor->length;
         cursor->index = rowid -1 - cursor->location;
+        cursor->length = cursor->length - cursor->index;
         
         dataItem = FDBDataItemAt(& cursor->data, cursor->index);
         

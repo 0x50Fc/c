@@ -88,6 +88,10 @@ extern "C" {
     
     FDBDataItem FDBIndexCursorToBegin(FDBIndexDB * indexDB,FDBIndexCursor * cursor,FDBIndexCursorCompare compare,hany context);
     
+    typedef enum _FDBIndexCursorPropertyStringMatch {
+        FDBIndexCursorPropertyStringMatchEqual,FDBIndexCursorPropertyStringMatchPrefix
+    } FDBIndexCursorPropertyStringMatch;
+    
     typedef struct _FDBIndexCursorProperty {
         FDBProperty * property;
         FDBIndexCompareOrder mode;
@@ -97,6 +101,7 @@ extern "C" {
             hdouble doubleValue;
             hcchar * stringValue;
         };
+        FDBIndexCursorPropertyStringMatch stringMatch;
     } FDBIndexCursorProperty;
     
     FDBDataItem FDBIndexCursorToBeginPropertys(FDBIndexDB * indexDB,FDBIndexCursor * cursor,FDBIndexCursorProperty * propertys,huint32 length);

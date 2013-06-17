@@ -276,7 +276,7 @@ static FDBIndexCompareOrder FDBIndexSortPropertyCompare (FDBIndex * index,FDBDat
                 break;
             case FDBPropertyTypeString:
             {
-                hint32 rs = strcmp(FDBClassGetPropertyStringValue(dataItem1, prop->property, ""), FDBClassGetPropertyStringValue(dataItem1, prop->property, ""));
+                hint32 rs = strcmp(FDBClassGetPropertyStringValue(dataItem1, prop->property, ""), FDBClassGetPropertyStringValue(dataItem2, prop->property, ""));
                 if(rs == 0){
                     o = FDBIndexCompareOrderSame;
                 }
@@ -340,7 +340,7 @@ FDBIndexDB * FDBIndexOpen(hcchar * dbPath,hcchar * name){
             return NULL;
         }
         
-        if(strncmp(head.tag, FDB_TAG, sizeof(head.tag))){
+        if(strncmp(head.tag, FDB_INDEX_TAG, sizeof(head.tag))){
             free(idx);
             close(fno);
             return NULL;
@@ -349,6 +349,8 @@ FDBIndexDB * FDBIndexOpen(hcchar * dbPath,hcchar * name){
         idx->base.version = head.version;
         
         idx->base.index = malloc(head.indexSize);
+        
+        memset(idx->base.index, 0, head.indexSize);
         
         if(head.indexSize != read(fno, idx->base.index, head.indexSize)){
             free(idx->base.index);
@@ -404,13 +406,14 @@ hint32 FDBIndexWrite(hcchar * dbPath,hcchar * name,FDBIndexData * const indexDat
             return FDB_ERROR;
         }
         
-        if(head.indexSize != write(fno, &indexData->index, head.indexSize)){
+        if(head.indexSize != write(fno, indexData->index, head.indexSize)){
             close(fno);
             return FDB_ERROR;
         }
         
         if(indexData->length){
-            if(indexData->length * indexData->index->itemSize != write(fno, indexData->data, indexData->length * indexData->index->itemSize)){
+            if(indexData->length * indexData->index->itemSize
+               != write(fno, indexData->data, indexData->length * indexData->index->itemSize)){
                 close(fno);
                 return FDB_ERROR;
             }
@@ -487,8 +490,15 @@ FDBDataItem FDBIndexCursorToNext(FDBIndexDB * indexDB,FDBIndexCursor * cursor,FD
         cursor->index ++;
         cursor->data.length --;
         
-        if(!compare || (* compare) (indexDB,cursor,dataItem,context) == FDBIndexCompareOrderSame){
+        if(! compare){
             return dataItem;
+        }
+        
+        if((* compare) (indexDB,cursor,dataItem,context) == FDBIndexCompareOrderSame){
+            return dataItem;
+        }
+        else{
+            return NULL;
         }
     }
     
@@ -554,7 +564,17 @@ static FDBIndexCompareOrder FDBIndexCursorToNextPropertysCompare(FDBIndexDB * in
                 break;
             case FDBPropertyTypeString:
             {
-                hint32 rs = strcmp(FDBClassGetPropertyStringValue(dataItem, prop->property, ""), prop->stringValue ? prop->stringValue : "");
+                hcchar * cString = FDBClassGetPropertyStringValue(dataItem, prop->property, "");
+                hint32 rs;
+                
+                if(prop->stringMatch == FDBIndexCursorPropertyStringMatchPrefix){
+                    rs = strspn(cString,prop->stringValue ? prop->stringValue : "");
+                    if(rs == strlen(prop->stringValue ? prop->stringValue : "")){
+                        return FDBIndexCompareOrderSame;
+                    }
+                }
+
+                rs = strcmp(cString, prop->stringValue ? prop->stringValue : "") ;
                 if(rs == 0){
                     o = FDBIndexCompareOrderSame;
                 }
