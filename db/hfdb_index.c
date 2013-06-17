@@ -307,6 +307,7 @@ huint32 FDBIndexSortPropertys(FDBIndexData * const data, FDBIndexSortProperty * 
 typedef struct _FDBIndexDBInternal {
     FDBIndexDB base;
     hchar idxPath[PATH_MAX];
+    int idxfno;
 } FDBIndexDBInternal;
 
 typedef struct _FDBIndexHead {
@@ -347,7 +348,7 @@ FDBIndexDB * FDBIndexOpen(hcchar * dbPath,hcchar * name){
         }
         
         idx->base.version = head.version;
-        
+        idx->base.rowCount = -1;
         idx->base.index = malloc(head.indexSize);
         
         memset(idx->base.index, 0, head.indexSize);
@@ -355,10 +356,11 @@ FDBIndexDB * FDBIndexOpen(hcchar * dbPath,hcchar * name){
         if(head.indexSize != read(fno, idx->base.index, head.indexSize)){
             free(idx->base.index);
             free(idx);
+            close(fno);
             return NULL;
         }
         
-        close(fno);
+        idx->idxfno = fno;
         
         return (FDBIndexDB *) idx;
     }
@@ -370,15 +372,24 @@ huint32 FDBIndexRowCount(FDBIndexDB * dbIndex){
     FDBIndexDBInternal * idx = (FDBIndexDBInternal *) dbIndex;
     struct stat s;
     
-    if(stat(idx->idxPath, &s) == -1){
-        return 0;
+    if(dbIndex->rowCount == -1){
+
+        if(stat(idx->idxPath, &s) == -1){
+            dbIndex->rowCount = 0;
+        }
+        else{
+            dbIndex->rowCount = ( ((huint32)s.st_size - (huint32)sizeof(FDBIndexHead) - (huint32)FDBIndexSize(idx->base.index)) / idx->base.index->itemSize);
+        }
     }
     
-    return ( ((huint32)s.st_size - (huint32)sizeof(FDBIndexHead) - (huint32)FDBIndexSize(idx->base.index)) / idx->base.index->itemSize);
+    return dbIndex->rowCount;
 }
 
 void FDBIndexClose(FDBIndexDB * dbIndex){
     FDBIndexDBInternal * idx = (FDBIndexDBInternal *) dbIndex;
+    if(idx->idxfno != -1){
+        close(idx->idxfno);
+    }
     free(idx->base.index);
     free(idx);
 }
@@ -443,7 +454,12 @@ FDBDataItem FDBIndexCursorToNext(FDBIndexDB * indexDB,FDBIndexCursor * cursor,FD
         
         if(cursor->data.length ==0){
             
-            fno = open(idx->idxPath, O_RDONLY);
+            if(idx->idxfno == -1){
+                fno = open(idx->idxPath, O_RDONLY);
+            }
+            else{
+                fno = idx->idxfno;
+            }
             
             if(fno == -1){
                 
@@ -460,7 +476,9 @@ FDBDataItem FDBIndexCursorToNext(FDBIndexDB * indexDB,FDBIndexCursor * cursor,FD
             if(off != lseek(fno, off, SEEK_SET)){
                 
                 flock(fno, LOCK_UN);
-                close(fno);
+                if(idx->idxfno != fno){
+                    close(fno);
+                }
                 return NULL;
             }
             
@@ -468,16 +486,13 @@ FDBDataItem FDBIndexCursorToNext(FDBIndexDB * indexDB,FDBIndexCursor * cursor,FD
             
             len = read(fno, cursor->data.data, len);
             
-            if(len % indexDB->index->itemSize){
-                flock(fno, LOCK_UN);
-                close(fno);
-                return NULL;
-            }
-            
             cursor->data.length = len / indexDB->index->itemSize;
             
             flock(fno, LOCK_UN);
-            close(fno);
+            
+            if(idx->idxfno != fno){
+                close(fno);
+            }
             
             if(cursor->data.length ==0){
                 break;
@@ -566,12 +581,22 @@ static FDBIndexCompareOrder FDBIndexCursorToNextPropertysCompare(FDBIndexDB * in
             {
                 hcchar * cString = FDBClassGetPropertyStringValue(dataItem, prop->property, "");
                 hint32 rs;
+                hchar * p1 , *p2 ;
                 
                 if(prop->stringMatch == FDBIndexCursorPropertyStringMatchPrefix){
-                    rs = strspn(cString,prop->stringValue ? prop->stringValue : "");
-                    if(rs == strlen(prop->stringValue ? prop->stringValue : "")){
+                    
+                    p1 = (hchar *) cString;
+                    p2 = (hchar *) prop->stringValue;
+                    
+                    while(p1 && p2 && *p1 !=0 && *p2 !=0 && *p1 == * p2){
+                        p1 ++;
+                        p2 ++;
+                    }
+                    
+                    if(p2 && * p2 == 0){
                         return FDBIndexCompareOrderSame;
                     }
+                    
                 }
 
                 rs = strcmp(cString, prop->stringValue ? prop->stringValue : "") ;
@@ -621,8 +646,13 @@ FDBDataItem FDBIndexCursorToBegin(FDBIndexDB * indexDB,FDBIndexCursor * cursor,F
         return NULL;
     }
     
+    if(idx->idxfno == -1){
+        fno = open(idx->idxPath, O_RDONLY);
+    }
+    else{
+        fno = idx->idxfno;
+    }
     
-    fno = open(idx->idxPath, O_RDONLY);
     
     if(fno == -1){
         
@@ -639,35 +669,143 @@ FDBDataItem FDBIndexCursorToBegin(FDBIndexDB * indexDB,FDBIndexCursor * cursor,F
         {
             
             hint32 b = 0,e = rowCount - 1,i;
-            dataItem = FDBIndexDataAt(&cursor->data, 0);
             FDBIndexCompareOrder rs;
+            
+            cursor->data.length = cursor->index + cursor->data.length;
+            cursor->index = 0;
+            
+            while(1){
+                
+                if(cursor->data.length == 0){
+                    
+                    off = sizeof(FDBIndexHead) + indexSize + indexDB->index->itemSize * cursor->location;
+                    
+                    if(off != lseek(fno, off, SEEK_SET)){
+                        
+                        flock(fno, LOCK_UN);
+                        
+                        if(idx->idxfno != fno){
+                            close(fno);
+                        }
+                        return NULL;
+                    }
+                    
+                    len = cursor->data.size * indexDB->index->itemSize ;
+                    
+                    if(len != read(fno, cursor->data.data, len)){
+                        flock(fno, LOCK_UN);
+                        if(idx->idxfno != fno){
+                            close(fno);
+                        }
+                        return NULL;
+                    }
+                    
+                    cursor->data.length = len / indexDB->index->itemSize;
+                    
+                    if(cursor->data.length == 0){
+                        flock(fno, LOCK_UN);
+                        if(idx->idxfno != fno){
+                            close(fno);
+                        }
+                        return NULL;
+                    }
+                }
+                
+                dataItem = FDBIndexDataAt(&cursor->data, 0);
+                
+                rs = (* compare) (indexDB,cursor,dataItem,context);
+                
+                if(rs == FDBIndexCompareOrderSame){
+                    if(cursor->location == 0){
+                        b = e = 0;
+                        break;
+                    }
+                    else{
+                        e = cursor->location;
+                        if(cursor->location < cursor->data.size){
+                            cursor->location = 0;
+                        }
+                        else {
+                            cursor->location = cursor->location - cursor->data.size;
+                        }
+                        cursor->data.length = 0;
+                        continue;
+                    }
+                }
+                else if(rs == FDBIndexCompareOrderAsc){
+                    
+                    b = cursor->location;
+                    
+                    dataItem = FDBIndexDataAt(&cursor->data, cursor->data.length -1);
+                    
+                    rs = (* compare) (indexDB,cursor,dataItem,context);
+                    
+                    if(rs == FDBIndexCompareOrderAsc){
+                        cursor->location += cursor->data.length;
+                        cursor->data.length = 0;
+                        if(cursor->location >= rowCount){
+                            cursor->location = rowCount - 1;
+                        }
+                        b = cursor->location;
+                        continue;
+                    }
+                    else{
+                        e = cursor->location + cursor->data.length -1;
+                        break;
+                    }
+                }
+                else {
+                    
+                    if(cursor->location == 0){
+                        flock(fno, LOCK_UN);
+                        if(idx->idxfno != fno){
+                            close(fno);
+                        }
+                        return NULL;
+                    }
+                    
+                    e = cursor->location;
+                    
+                    if(cursor->location < cursor->data.size){
+                        cursor->location = 0;
+                    }
+                    else {
+                        cursor->location = cursor->location - cursor->data.size;
+                    }
+                    
+                    cursor->data.length = 0;
+                    continue;
+                }
+                
+            }
+
             while(b <= e){
                 
                 i = (b + e) / 2;
                 
-                off = sizeof(FDBIndexHead) + indexSize + indexDB->index->itemSize * i;
+                assert(i >= cursor->location && i < cursor->location + cursor->data.length);
                 
-                if(off != lseek(fno, off, SEEK_SET)){
-                    
-                    flock(fno, LOCK_UN);
-                    close(fno);
-                    return NULL;
-                }
-                
-                if(indexDB->index->itemSize != read(fno, dataItem, indexDB->index->itemSize)){
-                    flock(fno, LOCK_UN);
-                    close(fno);
-                    return NULL;
-                }
+                dataItem = FDBIndexDataAt(& cursor->data, i - cursor->location);
                 
                 rs = (* compare) (indexDB,cursor,dataItem,context);
                 
                 if(rs == FDBIndexCompareOrderSame){
                     e = i;
                     if(b == e){
-                        cursor->location = b;
-                        cursor->index = 0;
-                        break;
+                        cursor->index = i - cursor->location;
+                        cursor->data.length = cursor->data.length - cursor->index;
+                        
+                        assert(cursor->data.length);
+                        
+                        cursor->index ++;
+                        cursor->data.length --;
+                        
+                        flock(fno, LOCK_UN);
+                        if(idx->idxfno != fno){
+                            close(fno);
+                        }
+                        
+                        return dataItem;
                     }
                 }
                 else if(rs == FDBIndexCompareOrderAsc){
@@ -688,7 +826,9 @@ FDBDataItem FDBIndexCursorToBegin(FDBIndexDB * indexDB,FDBIndexCursor * cursor,F
     if(off != lseek(fno, off, SEEK_SET)){
         
         flock(fno, LOCK_UN);
-        close(fno);
+        if(idx->idxfno != fno){
+            close(fno);
+        }
         return NULL;
     }
     
@@ -698,14 +838,19 @@ FDBDataItem FDBIndexCursorToBegin(FDBIndexDB * indexDB,FDBIndexCursor * cursor,F
     
     if(len % indexDB->index->itemSize){
         flock(fno, LOCK_UN);
-        close(fno);
+        if(idx->idxfno != fno){
+            close(fno);
+        }
         return NULL;
     }
     
     cursor->data.length = len / indexDB->index->itemSize;
     
     flock(fno, LOCK_UN);
-    close(fno);
+    
+    if(idx->idxfno != fno){
+        close(fno);
+    }
     
     if(cursor->data.length ==0){
         return NULL;

@@ -103,6 +103,7 @@ extern "C" {
     typedef struct _FDB{
         huint32 version;
         FDBClass * dbClass;
+        hint32 rowCount;
     } FDB;
     
     FDB * FDBCreate(hcchar * dbPath,FDBClass * dbClass,hbool isCopyDBClass);

@@ -297,6 +297,8 @@ typedef struct {
         huint32 length;
         hint64 location;
     } blob;
+    int dbfno;
+    int bobfno;
 } FDBInternal;
 
 typedef struct {
@@ -321,7 +323,10 @@ FDB * FDBCreate(hcchar * dbPath,FDBClass * dbClass,hbool isCopyDBClass){
         
         db->base.version = FDB_VERSION;
         db->base.dbClass = dbClass;
+        db->base.rowCount = -1;
         db->isCopyDBClass = isCopyDBClass;
+        db->dbfno = -1;
+        db->bobfno = -1;
         
         fno = open(db->dbPath, O_WRONLY | O_CREAT | O_TRUNC);
         
@@ -402,14 +407,17 @@ FDB * FDBOpen(hcchar * dbPath){
         db->isCopyDBClass = hbool_true;
 
         db->base.dbClass = malloc(head.classSize);
+        db->base.rowCount = -1;
         
         if(head.classSize != read(fno, db->base.dbClass, head.classSize)){
             free(db->base.dbClass);
             free(db);
+            close(fno);
             return NULL;
         }
         
-        close(fno);
+        db->dbfno = fno;
+        db->bobfno = open(db->bobPath, O_RDONLY);
         
         return (FDB *) db;
     }
@@ -418,6 +426,15 @@ FDB * FDBOpen(hcchar * dbPath){
 
 void FDBClose(FDB * fdb){
     FDBInternal * db = (FDBInternal *) fdb;
+    
+    if(db->dbfno != -1){
+        close(db->dbfno);
+    }
+    
+    if(db->bobfno != -1){
+        close(db->bobfno);
+    }
+    
     if(db->isCopyDBClass){
         free(db->base.dbClass);
     }
@@ -431,11 +448,17 @@ huint32 FDBRowCount(FDB * fdb){
     FDBInternal * db = (FDBInternal *) fdb;
     struct stat s;
     
-    if(stat(db->dbPath, &s) == -1){
-        return 0;
+    if(fdb->rowCount == -1){
+
+        if(stat(db->dbPath, &s) == -1){
+            fdb->rowCount = 0;
+        }
+        else{
+            fdb->rowCount = ( ((huint32)s.st_size - (huint32)sizeof(FDBHead) - (huint32)FDBClassSize(db->base.dbClass)) / db->base.dbClass->itemSize);
+        }
     }
     
-    return ( ((huint32)s.st_size - (huint32)sizeof(FDBHead) - (huint32)FDBClassSize(db->base.dbClass)) / db->base.dbClass->itemSize);
+    return fdb->rowCount;
 }
 
 hint32 FDBInsertData(FDB * fdb,FDBData * data,huint32 offset,huint32 length){
@@ -508,6 +531,18 @@ FDBBlobValue FDBBlobCreate(FDB * fdb,void * data,huint32 length){
     FDBInternal * db = (FDBInternal *) fdb;
     FDBBlobValue v = 0;
 
+    if(db->dbfno != -1){
+        close(db->dbfno);
+        db->dbfno = -1;
+    }
+    
+    if(db->bobfno != -1){
+        close(db->bobfno);
+        db->bobfno = -1;
+    }
+    
+    db->base.rowCount = -1;
+    
     int fno = open(db->bobPath, O_WRONLY | O_CREAT);
     
     if(fno == -1){
@@ -565,7 +600,12 @@ void * FDBBlobRead(FDB * fdb,FDBBlobValue value,huint32 * length){
     db->blob.length = 0;
     db->blob.location = value;
     
-    fno = open(db->bobPath, O_RDONLY);
+    if(db->bobfno == -1){
+        fno = open(db->bobPath, O_RDONLY);
+    }
+    else{
+        fno = db->bobfno;
+    }
     
     if(fno == -1){
         return NULL;
@@ -575,7 +615,9 @@ void * FDBBlobRead(FDB * fdb,FDBBlobValue value,huint32 * length){
     
     if( value != lseek(fno, value, SEEK_SET) ){
         flock(fno, LOCK_UN);
-        close(fno);
+        if(db->bobfno != fno){
+            close(fno);
+        }
         return NULL;
     }
     
@@ -611,7 +653,10 @@ void * FDBBlobRead(FDB * fdb,FDBBlobValue value,huint32 * length){
     }
     
     flock(fno, LOCK_UN);
-    close(fno);
+    
+    if(db->bobfno != fno){
+        close(fno);
+    }
     
     if(db->blob.sbuf && value >= db->blob.location && value < db->blob.location + db->blob.length){
         if(length){
@@ -629,6 +674,18 @@ hint32 FDBInsert(FDB * fdb,FDBDataItem dataItem){
 
     hint32 lastRowid = db->base.dbClass->lastRowid;
     hint32 rowid = lastRowid + 1;
+    
+    if(db->dbfno != -1){
+        close(db->dbfno);
+        db->dbfno = -1;
+    }
+    
+    if(db->bobfno != -1){
+        close(db->bobfno);
+        db->bobfno = -1;
+    }
+    
+    db->base.rowCount = -1;
     
     int fno = open(db->dbPath, O_WRONLY);
     
@@ -689,7 +746,12 @@ FDBDataItem FDBCursorNext(FDB * fdb,FDBCursor * cursor){
                 
             assert(cursor->data.dbClass == fdb->dbClass && cursor->data.length);
     
-            fno = open(db->dbPath, O_RDONLY);
+            if(db->dbfno == -1){
+                fno = open(db->dbPath, O_RDONLY);
+            }
+            else{
+                fno = db->dbfno;
+            }
             
             if(fno == -1){
                 
@@ -706,7 +768,10 @@ FDBDataItem FDBCursorNext(FDB * fdb,FDBCursor * cursor){
             if(off != lseek(fno, off, SEEK_SET)){
                 
                 flock(fno, LOCK_UN);
-                close(fno);
+                
+                if(db->dbfno != fno){
+                    close(fno);
+                }
                 return NULL;
             }
             
@@ -714,16 +779,14 @@ FDBDataItem FDBCursorNext(FDB * fdb,FDBCursor * cursor){
             
             len = read(fno, cursor->data.data, len);
      
-            if(len % fdb->dbClass->itemSize){
-                flock(fno, LOCK_UN);
-                close(fno);
-                return NULL;
-            }
             
             cursor->length = len / fdb->dbClass->itemSize;
             
             flock(fno, LOCK_UN);
-            close(fno);
+            
+            if(db->dbfno != fno){
+                close(fno);
+            }
             
             if(cursor->length ==0){
                 break;
@@ -774,7 +837,12 @@ FDBDataItem FDBCursorToRowid(FDB * fdb,FDBCursor * cursor,hint32 rowid){
     
     assert(cursor->data.dbClass == fdb->dbClass && cursor->data.length);
     
-    fno = open(db->dbPath, O_RDONLY);
+    if(db->dbfno == -1){
+        fno = open(db->dbPath, O_RDONLY);
+    }
+    else{
+        fno = db->dbfno;
+    }
     
     if(fno == -1){
         
@@ -791,7 +859,10 @@ FDBDataItem FDBCursorToRowid(FDB * fdb,FDBCursor * cursor,hint32 rowid){
     if(off != lseek(fno, off, SEEK_SET)){
         
         flock(fno, LOCK_UN);
-        close(fno);
+        
+        if(db->dbfno != fno){
+            close(fno);
+        }
         return NULL;
     }
     
@@ -799,16 +870,13 @@ FDBDataItem FDBCursorToRowid(FDB * fdb,FDBCursor * cursor,hint32 rowid){
     
     len = read(fno, cursor->data.data, len);
     
-    if(len % fdb->dbClass->itemSize){
-        flock(fno, LOCK_UN);
-        close(fno);
-        return NULL;
-    }
-    
     cursor->length = len / fdb->dbClass->itemSize;
     
     flock(fno, LOCK_UN);
-    close(fno);
+    
+    if(db->dbfno != fno){
+        close(fno);
+    }
     
     dataItem = FDBDataItemAt(& cursor->data, cursor->index);
     
@@ -832,6 +900,16 @@ hint32 FDBCursorCommit(FDB * fdb,FDBCursor * cursor){
     }
     
     classSize = FDBClassSize(fdb->dbClass);
+    
+    if(db->dbfno != -1){
+        close(db->dbfno);
+        db->dbfno = -1;
+    }
+    
+    if(db->bobfno != -1){
+        close(db->bobfno);
+        db->bobfno = -1;
+    }
     
     fno = open(db->dbPath, O_WRONLY);
     

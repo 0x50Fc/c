@@ -68,6 +68,7 @@ extern "C" {
     typedef struct _FDBIndexDB {
         huint32 version;
         FDBIndex * index;
+        hint32 rowCount;
     } FDBIndexDB;
     
     FDBIndexDB * FDBIndexOpen(hcchar * dbPath,hcchar * name);
