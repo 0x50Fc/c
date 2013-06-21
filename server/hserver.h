@@ -14,11 +14,32 @@
 extern "C" {
 #endif
     
+    struct _SRVProcess;
     
     typedef struct _SRVServer {
-        int listenSocket;
-        pthread_mutex_t listenMutex;
+        struct {
+            struct {
+                int argc;
+                char ** args;
+            } arg;
+            struct {
+                struct _SRVProcess * data;
+                huint32 length;
+            } process;
+            struct {
+                int port;
+            } socket;
+            hbool isBackgroundRun;
+        } config;
+        struct {
+            pid_t mainpid;
+            int port;
+            int listenSocket;
+            pthread_mutex_t listenMutex;
+        } run;
     } SRVServer;
+    
+    int SRVServerRun(SRVServer * server);
     
     int SRVServerAccept(SRVServer * server,double timeout,struct sockaddr * addr,socklen_t * socklen);
     
@@ -36,10 +57,10 @@ extern "C" {
     
     typedef struct _SRVProcessClass{
         SRVProcessCreate create;
-        SRVProcessCreate exit;
-        SRVProcessCreate open;
-        SRVProcessCreate tick;
-        SRVProcessCreate close;
+        SRVProcessExit exit;
+        SRVProcessOpen open;
+        SRVProcessTick tick;
+        SRVProcessClose close;
     } SRVProcessClass;
     
     typedef struct _SRVProcess {
@@ -47,7 +68,8 @@ extern "C" {
         pid_t pid;
         int exit;
     } SRVProcess;
-
+    
+        
 #ifdef __cplusplus
 }
 #endif

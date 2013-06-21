@@ -21,6 +21,7 @@ extern "C" {
     
 	hbool hbase64_decode(hcchar * str,hbuffer_t buffer,InvokeTickDeclare);
     
+    huint32 hbase64_decode_bytes(hchar * inData,huint32 inLength,hchar * outData ,huint32 outLength);
 	
 #define hbase64_encode(a,b,c) hbase64_encode((a),(b),(c),InvokeTickArg)
     

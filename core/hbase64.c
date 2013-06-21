@@ -188,3 +188,115 @@ hbool hbase64_decode(hcchar * str,hbuffer_t buffer,InvokeTickDeclare){
     return hbool_false;
 }
 
+huint32 hbase64_decode_bytes(hchar * p,huint32 inLength,hchar * outData ,huint32 outLength){
+    hint32 i;
+    hbase64_value_t value;
+    hint32 last = 0;
+    huint32 c = 0;
+    
+    while(inLength > 0 && c < outLength && p && outData){
+        
+        
+        if(*p == '\n' || *p == '\r' || *p == ' ' || *p =='\t'){
+            p ++;
+            inLength --;
+            continue;
+        }
+        
+        if(inLength >=4 && p[0] && p[1] && p[2] && p[3]){
+            value.value = 0;
+            last = 0;
+            for(i=0;i<4;i++){
+                if( IS_BASE_BIT(*p)){
+                    value.value = value.value << 6;
+                    if(*p >= 'A' && *p<= 'Z'){
+                        value.value = value.value | (*p -'A');
+                    }
+                    else if(*p >= 'a' && *p <='z'){
+                        value.value = value.value | (*p - 'a' + 26);
+                    }
+                    else if(*p >= '0' && *p <= '9'){
+                        value.value = value.value | (*p - '0' + 52);
+                    }
+                    else if(*p == '+'){
+                        value.value = value.value | 62;
+                    }
+                    else if(*p == '/'){
+                        value.value = value.value | 63;
+                    }
+                }
+                else if(*p == '='){
+                    value.value = value.value << 6;
+                    last ++;
+                }
+                else{
+                    return 0;
+                }
+                p ++;
+                inLength --;
+            }
+            
+            if(last ==0){
+                
+                if(c + 3 <= outLength){
+#ifdef BITS_LOW
+                    outData[0] = value.token.byte2;
+                    outData[1] = value.token.byte1;
+                    outData[2] = value.token.byte0;
+#else
+                    outData[0] = value.token.byte0;
+                    outData[1] = value.token.byte1;
+                    outData[2] = value.token.byte2;
+#endif
+                    c += 3;
+                    outData += 3;
+                }
+                else{
+                    return  0;
+                }
+                
+
+            }
+            else if(last ==1){
+                
+                if(c + 2 <= outLength){
+#ifdef BITS_LOW
+                    outData[0] = value.token.byte2;
+                    outData[1] = value.token.byte1;
+#else
+                    outData[0] = value.token.byte0;
+                    outData[1] = value.token.byte1;
+#endif
+                    c += 2;
+                    outData += 2;
+                }
+                else{
+                    return  0;
+                }
+                
+            }
+            else if(last == 2){
+                if(c + 1 <= outLength){
+#ifdef BITS_LOW
+                    outData[0] = value.token.byte2;
+#else
+                    outData[0] = value.token.byte0;
+#endif
+                    c += 1;
+                    outData += 1;
+                }
+                else{
+                    return  0;
+                }
+            }
+            else {
+                return 0;
+            }
+        }
+        else{
+            return 0;
+        }
+    }
+    return c;
+}
+
