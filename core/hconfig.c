@@ -14,4 +14,3 @@ void hclibrary_init(void){
 	signal(SIGPIPE,SIG_IGN);
     #endif
 }
-
