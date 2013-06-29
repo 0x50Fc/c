@@ -124,11 +124,19 @@ StreamState stream_socket_has_space(hsocket_t sock ,hdouble timeout){
 }
 
 hint32 stream_socket_read(hsocket_t sock, hany data,hint32 length){
-    return (hint32)recv(sock,data,length,0);
+    hint32 rs = (hint32)recv(sock,data,length,0);
+    if(rs == -1){
+        return 0;
+    }
+    return rs;
 }
 
 hint32 stream_socket_write(hsocket_t sock, hany data,hint32 length){
-    return (hint32)send(sock,data,length,0);
+    hint32 rs = (hint32)send(sock,data,length,0);
+    if(rs == -1){
+        return 0;
+    }
+    return rs;
 }
 
 
