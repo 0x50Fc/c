@@ -12,7 +12,7 @@
 
 
 #define IS_SPACE(c) ((c) == ' ' || (c) == '\t')
-#define IS_SPACE_NEW_LINE(c)    IS_SPACE(c) || ((c) == '\r' || (c) == '\n')
+#define IS_SPACE_NEW_LINE(c)    ( IS_SPACE(c) || (c) == '\r' || (c) == '\n')
 
 hbool hcss_scanf(hcss_scanf_t * css,hcchar * str,hany styleSheet, InvokeTickDeclare){
     
