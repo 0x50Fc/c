@@ -73,7 +73,7 @@ hbool hcss_scanf(hcss_scanf_t * css,hcchar * str,hany styleSheet, InvokeTickDecl
                     buffer_clear(key);
                 }
                 else{
-                    buffer_append(key, p, 1);
+                    buffer_append(name, p, 1);
                 }
             }
                 break;
