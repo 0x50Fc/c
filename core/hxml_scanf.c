@@ -17,6 +17,7 @@
 #define IS_NBSP(p) ((p)[0] == 'n' && (p)[1] == 'b' && (p)[2] == 's' && (p)[3] == 'p' && (p)[4] == ';')
 #define IS_GT(p) ((p)[0] == 'g' && (p)[1] == 't' && (p)[2] == ';')
 #define IS_LT(p) ((p)[0] == 'l' && (p)[1] == 't' && (p)[2] == ';')
+#define IS_QUOT(p) ((p)[0] == 'q' && (p)[1] == 'u' && (p)[2] == 'o' && (p)[3] == 't' && (p)[4] == ';')
 #define IS_END(p) ((p)[0] == '/' && (p)[1] == '>')
 
 static hchar * hxml_scanf_parse_string(hbuffer_t target,hchar * p,hchar endChar, InvokeTickDeclare){
@@ -62,6 +63,10 @@ static hchar * hxml_scanf_parse_decode(hbuffer_t target,hchar * p,InvokeTickDecl
     else if(IS_LT(p)){
         buffer_append_str(target, "<");
         p +=3;
+    }
+    else if(IS_QUOT(p)){
+        buffer_append_str(target, "\"");
+        p +=5;
     }
     else{
         buffer_append_str(target, "&");
