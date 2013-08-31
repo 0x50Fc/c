@@ -53,7 +53,7 @@ int SRVServerRun(SRVServer * server){
     
     server->run.mainpid = getpid();
     
-    printf("SRVServerRun(%d) begin\n",server->run.mainpid);
+    SRVServerLog("SRVServerRun(%d) begin\n",server->run.mainpid);
     
     
     server->run.listenSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -83,7 +83,7 @@ int SRVServerRun(SRVServer * server){
 
         server->run.port = ntohs(addr.sin_port);
         
-        printf("bind %d\n",server->run.port);
+        SRVServerLog("bind %d\n",server->run.port);
         
         res = listen(server->run.listenSocket, SOMAXCONN);
         
@@ -105,6 +105,7 @@ int SRVServerRun(SRVServer * server){
     signal(SIGKILL, SVRServerSIGProcessQuit);
     signal(SIGABRT, SVRServerSIGProcessQuit);
     signal(SIGPIPE, SVRServerSIGNAN);
+    signal(SIGTTOU, SVRServerSIGNAN);
     
     {
         huint32 c = server->config.process.length;
@@ -187,7 +188,7 @@ int SRVServerRun(SRVServer * server){
     close(server->run.listenSocket);
     pthread_mutex_destroy(&server->run.listenMutex);
     
-    printf("main end\n");
+    SRVServerLog("main end\n");
 
     gServer = NULL;
     
@@ -196,7 +197,7 @@ int SRVServerRun(SRVServer * server){
 
 
 static void SVRServerSIGNAN(int signo){
-    printf("sig_nan %d\n",signo);
+    SRVServerLog("sig_nan %d\n",signo);
 }
 
 static void SVRServerSIGProcessQuit(int signo)
@@ -244,7 +245,7 @@ static void SVRServerSIGProcessQuit(int signo)
             exit(EXIT_FAILURE);
         }
         else {
-            printf("process(%d) exit\n",getpid());
+            SRVServerLog("process(%d) exit\n",getpid());
             processExit = 1;
         }
     }
@@ -268,6 +269,7 @@ static void SVRServerRunProcess(SRVProcess * process){
             signal(SIGKILL, SIG_DFL);
             signal(SIGABRT, SIG_DFL);
             signal(SIGPIPE, SVRServerSIGNAN);
+            signal(SIGTTOU, SVRServerSIGNAN);
             
             process->pid  = getpid();
             
@@ -336,4 +338,56 @@ int SRVServerAccept(SRVServer * server,double timeout,struct sockaddr * addr,soc
     pthread_mutex_unlock(&server->run.listenMutex);
     
     return client;
+}
+
+void SRVServerLog(const char * format,...){
+    
+    va_list va;
+    
+    va_start(va, format);
+    
+    if(gServer){
+        
+        if(gServer->logCallback){
+            (*gServer->logCallback)(gServer,format,va);
+        }
+       
+        va_end(va);
+        
+        return;
+    }
+    
+    {
+        fd_set rds;
+        int res;
+        
+        struct timeval timeo = {0, 0.1 * 1000000};
+        
+        FD_ZERO(&rds);
+        
+        FD_SET(STDOUT_FILENO, &rds);
+        
+        res = select(STDOUT_FILENO + 1, &rds, NULL, NULL, &timeo);
+        
+        if(res == 0){
+            
+        }
+        else if(res == -1){
+            if(errno == EINTR){
+                
+            }
+            else{
+                
+            }
+        }
+        else{
+            if(FD_ISSET(STDOUT_FILENO, &rds)){
+                vprintf(format, va);
+            }
+        }
+        
+    }
+    
+    va_end(va);
+    
 }

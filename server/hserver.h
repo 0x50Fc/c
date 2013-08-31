@@ -15,6 +15,9 @@ extern "C" {
 #endif
     
     struct _SRVProcess;
+    struct _SRVServer;
+    
+    typedef void (* SRVServerLogCallback)(struct _SRVServer * srv,const char * format,va_list va);
     
     typedef struct _SRVServer {
         struct {
@@ -37,6 +40,7 @@ extern "C" {
             int listenSocket;
             pthread_mutex_t listenMutex;
         } run;
+        SRVServerLogCallback logCallback;
     } SRVServer;
     
     int SRVServerRun(SRVServer * server);
@@ -69,6 +73,7 @@ extern "C" {
         int exit;
     } SRVProcess;
     
+    void SRVServerLog(const char * format,...);
         
 #ifdef __cplusplus
 }
