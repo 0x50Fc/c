@@ -121,11 +121,44 @@ int SRVServerRun(SRVServer * server){
     
     {
         char command[128] = "";
+        fd_set rds;
+        int res;
+        struct timeval timeo = {30,0};
+        
         while(strcmp(command, "exit")){
+            
+            memset(command, 0, sizeof(command));
+            
             if(server->config.isBackgroundRun){
                 usleep(300000);
             }
-            scanf("%s",command);
+            
+            FD_ZERO(&rds);
+            
+            FD_SET(STDIN_FILENO, &rds);
+            
+            res = select(STDIN_FILENO + 1, &rds, NULL, NULL, &timeo);
+            
+            if(res == 0){
+                
+            }
+            else if(res == -1){
+                if(errno == EINTR){
+                    
+                }
+                else{
+                    break;
+                }
+            }
+            else{
+                if(FD_ISSET(server->run.listenSocket, &rds)){
+                    
+                    scanf("%s",command);
+                    
+                }
+            }
+            
+
         }
     }
 
