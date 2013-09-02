@@ -106,6 +106,7 @@ int SRVServerRun(SRVServer * server){
     signal(SIGABRT, SVRServerSIGProcessQuit);
     signal(SIGPIPE, SVRServerSIGNAN);
     signal(SIGTTOU, SVRServerSIGNAN);
+    signal(ETIMEDOUT, SVRServerSIGNAN);
     
     {
         huint32 c = server->config.process.length;
@@ -270,6 +271,7 @@ static void SVRServerRunProcess(SRVProcess * process){
             signal(SIGABRT, SIG_DFL);
             signal(SIGPIPE, SVRServerSIGNAN);
             signal(SIGTTOU, SVRServerSIGNAN);
+            signal(ETIMEDOUT, SVRServerSIGNAN);
             
             process->pid  = getpid();
             
