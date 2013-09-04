@@ -65,6 +65,7 @@ int SRVServerRun(SRVServer * server){
         struct sockaddr_in addr ;
         socklen_t socklen = sizeof(struct sockaddr_in);
         hint32 fl;
+        int fn = 1;
         
         memset(&addr, 0, sizeof(struct sockaddr_in));
         addr.sin_family = AF_INET;
@@ -96,6 +97,8 @@ int SRVServerRun(SRVServer * server){
         fl =  fcntl(server->run.listenSocket, F_GETFL) ;
         fcntl(server->run.listenSocket, F_SETFL, fl | O_NONBLOCK);
         
+        setsockopt(server->run.listenSocket, SOL_SOCKET, SO_RCVLOWAT, (void *)&fn, sizeof(fn));
+        setsockopt(server->run.listenSocket, SOL_SOCKET, SO_SNDLOWAT, (void *)&fn, sizeof(fn));
         
     }
     
@@ -303,6 +306,7 @@ int SRVServerAccept(SRVServer * server,double timeout,struct sockaddr * addr,soc
     fd_set rds;
     int res;
     int fl;
+    int fn = 1;
     
     struct timeval timeo = {(int)timeout, (timeout - (int) timeout) * 1000000};
     
@@ -333,6 +337,8 @@ int SRVServerAccept(SRVServer * server,double timeout,struct sockaddr * addr,soc
             if(client != -1){
                 fl =  fcntl(client, F_GETFL) ;
                 fcntl(client, F_SETFL, fl | O_NONBLOCK);
+                setsockopt(server->run.listenSocket, SOL_SOCKET, SO_RCVLOWAT, (void *)&fn, sizeof(fn));
+                setsockopt(server->run.listenSocket, SOL_SOCKET, SO_SNDLOWAT, (void *)&fn, sizeof(fn));
             }
         }
     }
