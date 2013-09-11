@@ -275,16 +275,10 @@ hint32 str_len_form_wstr(hwchar * str,hint32 wlen,InvokeTickDeclare){
         else if( * str < 0x800){
             rs += 2;
         }
-        else if( * str< 0x10000){
+        else{
             rs += 3;
         }
-        else if( * str < 0x200000){
-            rs += 4;
-        }
-        else{
-            assert(0);
-        }
-        
+
         str ++;
         wlen --;
     }
@@ -304,19 +298,10 @@ hint32 wstr_to_str(hwchar * str,hint32 wlen,hchar * targer,InvokeTickDeclare){
             targer[rs ++] = 0xc0 | ( * str >> 6);
             targer[rs ++] = 0x80 | ( * str & 0x3f);
         }
-        else if( * str< 0x10000){
+        else{
             targer[rs ++] = 0xe0 | ( *str >> 12);
             targer[rs ++] = 0x80 | ( (* str >> 6) & 0x3f );
             targer[rs ++] = 0x80 | ( * str & 0x3f);
-        }
-        else if( * str < 0x200000){
-            targer[rs ++] = 0xf0 | ( * str >> 18);
-            targer[rs ++] = 0x80 | ( (* str >> 12) & 0x3f );
-            targer[rs ++] = 0x80 | ( (* str >> 6) & 0x3f);
-            targer[rs ++] = 0x80 | ( * str & 0x3f);
-        }
-        else{
-            assert(0);
         }
         
         str ++;
