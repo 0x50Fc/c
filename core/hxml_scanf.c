@@ -277,6 +277,24 @@ static hchar * _hxml_scanf_decode(hxml_scanf_t * xml,hchar * p,hany toElement,hx
                 else if(IS_SPACE_CHAR(*p)){
                     
                 }
+                else if(*p == '\\'){
+                    if(p[1] == 'n'){
+                        buffer_append(buffers->text, "\n",1);
+                    }
+                    else if(p[1] == '\\'){
+                        buffer_append(buffers->text, "\\",1);
+                    }
+                    else if(p[1] == '\t'){
+                        buffer_append(buffers->text, "\t",1);
+                    }
+                    else if(p[1] == '\r'){
+                        buffer_append(buffers->text, "\r",1);
+                    }
+                    else{
+                        buffer_append(buffers->text, p + 1,1);
+                    }
+                    p ++;
+                }
                 else{
                     buffer_append(buffers->text,p,1);
                 }
