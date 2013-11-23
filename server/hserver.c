@@ -255,6 +255,13 @@ static void SVRServerSIGProcessQuit(int signo)
     }
 }
 
+static void SVRServerSIGChildProcessQuit(int signo)
+{
+    int     stat;
+    waitpid(-1, &stat, WNOHANG);
+}
+
+
 static void SVRServerRunProcess(SRVProcess * process){
     
     pid_t pid;
@@ -269,7 +276,7 @@ static void SVRServerRunProcess(SRVProcess * process){
         }
         else if(pid == 0)
         {
-            signal(SIGCHLD, SIG_DFL);
+            signal(SIGCHLD, SVRServerSIGChildProcessQuit);
             signal(SIGKILL, SIG_DFL);
             signal(SIGABRT, SIG_DFL);
             signal(SIGPIPE, SVRServerSIGNAN);
