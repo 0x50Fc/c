@@ -251,7 +251,7 @@ static hchar * _hxml_scanf_decode(hxml_scanf_t * xml,hchar * p,hany toElement,hx
     hint32 s = 0x00;
     hxml_scanf_attr_t attr;
     
-    while(*p != '\0'){
+    while(p && *p != '\0'){
         
         switch (s) {
             case 0x00:
