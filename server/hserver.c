@@ -361,16 +361,20 @@ void SRVServerLog(const char * format,...){
     
     va_start(va, format);
     
-    if(gServer){
+    if(gServer && gServer->logCallback){
         
-        if(gServer->logCallback){
-            (*gServer->logCallback)(gServer,format,va);
-        }
+        (*gServer->logCallback)(gServer,format,va);
        
         va_end(va);
         
         return;
     }
+    
+#ifdef DEBUG
+  
+    vprintf(format, va);
+    
+#else
     
     {
         fd_set rds;
@@ -402,6 +406,10 @@ void SRVServerLog(const char * format,...){
         }
         
     }
+
+    
+#endif
+    
     
     va_end(va);
     
