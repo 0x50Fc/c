@@ -540,7 +540,7 @@ static vmVariant vmStringClassInvokeCallback(vmRuntimeContext context,vmClass * 
     else if(vmStr->uniqueKeys.substr == name){
         {
             hint32 index = vmVariantToInt32(context, vmVariantListGet(args, 0));
-            hint32 slen = strlen(vmStr->cString);
+            hint32 slen = (hint32) strlen(vmStr->cString);
             hint32 len;
             
             if(vmVariantListCount(args) >1){
@@ -581,7 +581,7 @@ static vmVariant vmStringClassInvokeCallback(vmRuntimeContext context,vmClass * 
                     break;
                 }
             }
-            rs = vmStringAllocWithLength(context, sp, ep - sp + 1, InvokeTickArg);
+            rs = vmStringAllocWithLength(context, sp, (hint32) (ep - sp + 1), InvokeTickArg);
           
         }
     }
@@ -599,7 +599,7 @@ static vmVariant vmStringClassInvokeCallback(vmRuntimeContext context,vmClass * 
             
             if(p){
                 rs.type = vmVariantTypeInt32;
-                rs.value.int32Value = p - (hchar *)vmStr->cString;
+                rs.value.int32Value = (hint32) (p - (hchar *)vmStr->cString);
             }
             else{
                 rs.type = vmVariantTypeInt32;
@@ -2119,7 +2119,7 @@ static vmVariant vmDataClassInvokeCallback(vmRuntimeContext context,vmClass * cl
             
             if(p){
                 rs.type = vmVariantTypeInt32;
-                rs.value.int32Value = p - buffer_data(data->bytes);
+                rs.value.int32Value = (hint32) (p - buffer_data(data->bytes));
             }
             else{
                 rs.type = vmVariantTypeInt32;

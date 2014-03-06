@@ -193,10 +193,10 @@ static vmVariant vmFileClassInvokeCallback(vmRuntimeContext context,vmClass * cl
         {
             hbuffer_t buf = buffer_alloc(128, 128);
             hbyte buffer[1024];
-            hint32 len;
+            ssize_t len;
             
             while(!feof(file->file) && (len = fread(buffer, 1, sizeof(buffer), file->file)) >0){
-                buffer_append(buf, buffer, len);
+                buffer_append(buf, buffer, (hint32) len);
             }
         
             rs = vmStringAlloc(context, buffer_to_str(buf));

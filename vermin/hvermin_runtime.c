@@ -381,7 +381,7 @@ static vmRuntimeMetaOperator * vmRuntimeContextFindProperty(vmRuntimeContext con
     if(name > (huintptr)bytes && name < (huintptr)bytes + bytes->length){
         bi = 0;
         ei = classMeta->propertys - 1;
-        off = name - (huintptr)bytes;
+        off = (vmClassMetaOffset) (name - (huintptr)bytes);
         while(bi <= ei){
             i = (bi + ei) / 2;
             op = (vmRuntimeMetaOperator *)((hbyte *) bytes + propertyBegin[i]);
@@ -422,7 +422,7 @@ static vmRuntimeMetaOperator * vmRuntimeContextFindFunction(vmRuntimeContext con
     if(name > (huintptr)bytes && name < (huintptr)bytes + bytes->length){
         bi = 0;
         ei = classMeta->functions - 1;
-        off = name - (huintptr)bytes;
+        off = (vmClassMetaOffset)( name - (huintptr)bytes );
         while(bi <= ei){
             i = (bi + ei) / 2;
             op = (vmRuntimeMetaOperator *)((hbyte *) bytes + functionBegin[i]);

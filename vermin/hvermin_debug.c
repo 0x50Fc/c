@@ -93,7 +93,7 @@ void vmRuntimeDebugExec(vmRuntimeDebug debug,vmClassMeta * classMeta,vmRuntimeMe
                 if(s == StreamStateOK){
                     
                     command.type = vmRuntimeDebugCommandTypeBreakpoint;
-                    command.offset = (hubyte *)op - (hubyte *)bytes;
+                    command.offset = (vmClassMetaOffset)( (hubyte *)op - (hubyte *)bytes );
                     memcpy(command.UDID, bytes->UDID, sizeof(command.UDID));
                     
                     stream_write(dbg->stream, &command, sizeof(command),InvokeTickArg);

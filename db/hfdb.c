@@ -738,7 +738,7 @@ FDBDataItem FDBCursorNext(FDB * fdb,FDBCursor * cursor){
     int fno;
     off_t off;
     huint32 classSize = FDBClassSize(fdb->dbClass);
-    huint32 len;
+    ssize_t len;
 
     while(1){
         
@@ -778,9 +778,12 @@ FDBDataItem FDBCursorNext(FDB * fdb,FDBCursor * cursor){
             len = cursor->data.length * fdb->dbClass->itemSize;
             
             len = read(fno, cursor->data.data, len);
-     
             
-            cursor->length = len / fdb->dbClass->itemSize;
+            if(len < 0){
+                len = 0;
+            }
+            
+            cursor->length = (huint32) len / fdb->dbClass->itemSize;
             
             flock(fno, LOCK_UN);
             
@@ -815,7 +818,7 @@ FDBDataItem FDBCursorToRowid(FDB * fdb,FDBCursor * cursor,hint32 rowid){
     int fno;
     huint32 classSize = FDBClassSize(fdb->dbClass);
     off_t off;
-    huint32 len;
+    ssize_t len;
     FDBDataItem dataItem = NULL;
     
     if(rowid <=0 && rowid > rowCount){
@@ -870,7 +873,11 @@ FDBDataItem FDBCursorToRowid(FDB * fdb,FDBCursor * cursor,hint32 rowid){
     
     len = read(fno, cursor->data.data, len);
     
-    cursor->length = len / fdb->dbClass->itemSize;
+    if(len < 0){
+        len = 0;
+    }
+    
+    cursor->length = (huint32) len / fdb->dbClass->itemSize;
     
     flock(fno, LOCK_UN);
     

@@ -445,7 +445,7 @@ FDBDataItem FDBIndexCursorToNext(FDBIndexDB * indexDB,FDBIndexCursor * cursor,FD
     int fno;
     off_t off;
     huint32 indexSize = FDBIndexSize(idx->base.index);
-    huint32 len;
+    ssize_t len;
     
     assert(cursor->data.index == indexDB->index);
     assert(cursor->data.size);
@@ -486,7 +486,11 @@ FDBDataItem FDBIndexCursorToNext(FDBIndexDB * indexDB,FDBIndexCursor * cursor,FD
             
             len = read(fno, cursor->data.data, len);
             
-            cursor->data.length = len / indexDB->index->itemSize;
+            if(len < 0){
+                len = 0;
+            }
+            
+            cursor->data.length =  (huint32) len / indexDB->index->itemSize;
             
             flock(fno, LOCK_UN);
             
@@ -637,7 +641,7 @@ FDBDataItem FDBIndexCursorToBegin(FDBIndexDB * indexDB,FDBIndexCursor * cursor,F
     int fno;
     off_t off;
     huint32 indexSize = FDBIndexSize(idx->base.index);
-    huint32 len;
+    ssize_t len;
     
     assert(cursor->data.index == indexDB->index);
     assert(cursor->data.size);
@@ -700,7 +704,7 @@ FDBDataItem FDBIndexCursorToBegin(FDBIndexDB * indexDB,FDBIndexCursor * cursor,F
                         return NULL;
                     }
                     
-                    cursor->data.length = len / indexDB->index->itemSize;
+                    cursor->data.length = (huint32) len / indexDB->index->itemSize;
                     
                     if(cursor->data.length == 0){
                         flock(fno, LOCK_UN);
@@ -836,6 +840,10 @@ FDBDataItem FDBIndexCursorToBegin(FDBIndexDB * indexDB,FDBIndexCursor * cursor,F
     
     len = read(fno, cursor->data.data, len);
     
+    if(len < 0){
+        len = 0;
+    }
+    
     if(len % indexDB->index->itemSize){
         flock(fno, LOCK_UN);
         if(idx->idxfno != fno){
@@ -844,7 +852,7 @@ FDBDataItem FDBIndexCursorToBegin(FDBIndexDB * indexDB,FDBIndexCursor * cursor,F
         return NULL;
     }
     
-    cursor->data.length = len / indexDB->index->itemSize;
+    cursor->data.length = (huint32) len / indexDB->index->itemSize;
     
     flock(fno, LOCK_UN);
     
