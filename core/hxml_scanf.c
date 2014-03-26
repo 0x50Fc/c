@@ -21,6 +21,8 @@
 #define IS_QUOT(p) ((p)[0] == 'q' && (p)[1] == 'u' && (p)[2] == 'o' && (p)[3] == 't' && (p)[4] == ';')
 #define IS_END(p) ((p)[0] == '/' && (p)[1] == '>')
 
+static hchar * hxml_scanf_parse_decode(hbuffer_t target,hchar * p,InvokeTickDeclare);
+
 static hchar * hxml_scanf_parse_string(hbuffer_t target,hchar * p,hchar endChar, InvokeTickDeclare){
     hint32 s = 0;
     while(*p != '\0'){
@@ -29,6 +31,11 @@ static hchar * hxml_scanf_parse_string(hbuffer_t target,hchar * p,hchar endChar,
             {
                 if(*p == '\\'){
                     s ++;
+                }
+                else if(*p == '&'){
+                    p ++;
+                    p = hxml_scanf_parse_decode(target,p,InvokeTickArg);
+                    continue;
                 }
                 else if(*p == endChar || (endChar == 0 && (IS_SPACE_CHAR(*p) || *p == '<' || *p == '>' || *p == '/'))){
                     return p;
