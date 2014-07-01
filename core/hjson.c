@@ -311,10 +311,10 @@ hany hjson_decode(hjson_t * json,hcchar * str,InvokeTickDeclare){
 				if( p[1] == 'n'){
 					buffer_append_str(value_buffer,"\n");
 				}
-				else if( p[1] == '\r'){
+				else if( p[1] == 'r'){
 					buffer_append_str(value_buffer,"\r");
 				}
-				else if( p[1] == '\t'){
+				else if( p[1] == 't'){
 					buffer_append_str(value_buffer,"\t");
 				}
 				else if( p[1] == '\\'){
