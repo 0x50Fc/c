@@ -19,6 +19,12 @@
 #define IS_LT(p) ((p)[0] == 'l' && (p)[1] == 't' && (p)[2] == ';')
 #define IS_AMP(p) ((p)[0] == 'a' && (p)[1] == 'm' && (p)[2] == 'p' && (p)[3] == ';')
 #define IS_QUOT(p) ((p)[0] == 'q' && (p)[1] == 'u' && (p)[2] == 'o' && (p)[3] == 't' && (p)[4] == ';')
+#define IS_LDQUO(p) ((p)[0] == 'l' && (p)[1] == 'd' && (p)[2] == 'q' && (p)[3] == 'u' && (p)[4] == 'o' && (p)[5] == ';')
+#define IS_RDQUO(p) ((p)[0] == 'r' && (p)[1] == 'd' && (p)[2] == 'q' && (p)[3] == 'u' && (p)[4] == 'o' && (p)[5] == ';')
+#define IS_HELLIP(p) ((p)[0] == 'h' && (p)[1] == 'e' && (p)[2] == 'l' && (p)[3] == 'l' && (p)[4] == 'i' && (p)[5] == 'p' && (p)[6] == ';')
+#define IS_MDASH(p) ((p)[0] == 'm' && (p)[1] == 'd' && (p)[2] == 'a' && (p)[3] == 's' && (p)[4] == 'h' && (p)[5] == ';')
+#define IS_BULL(p) ((p)[0] == 'b' && (p)[1] == 'u' && (p)[2] == 'l' && (p)[3] == 'l' && (p)[4] == ';' )
+#define IS_MIDDOT(p) ((p)[0] == 'm' && (p)[1] == 'i' && (p)[2] == 'd' && (p)[3] == 'd' && (p)[4] == 'o' && (p)[5] == 't' && (p)[6] == ';')
 #define IS_END(p) ((p)[0] == '/' && (p)[1] == '>')
 
 static hchar * hxml_scanf_parse_decode(hbuffer_t target,hchar * p,InvokeTickDeclare);
@@ -79,6 +85,30 @@ static hchar * hxml_scanf_parse_decode(hbuffer_t target,hchar * p,InvokeTickDecl
     else if(IS_AMP(p)){
         buffer_append_str(target, "&");
         p +=4;
+    }
+    else if(IS_LDQUO(p)){
+        buffer_append_str(target, "『");
+        p +=6;
+    }
+    else if(IS_RDQUO(p)){
+        buffer_append_str(target, "』");
+        p +=6;
+    }
+    else if(IS_MDASH(p)){
+        buffer_append_str(target, "－");
+        p +=6;
+    }
+    else if(IS_HELLIP(p)){
+        buffer_append_str(target, "…");
+        p +=7;
+    }
+    else if(IS_BULL(p)){
+        buffer_append_str(target, "•");
+        p +=5;
+    }
+    else if(IS_MIDDOT(p)){
+        buffer_append_str(target, "·");
+        p +=7;
     }
     else{
         buffer_append_str(target, "&");
